@@ -5,6 +5,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../ui/Logo';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -164,6 +165,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
          </div>
       </nav>
 
+      <PWAInstallPrompt />
     </div>
   );
 };

@@ -1,0 +1,17 @@
+{
+  "short_name": "EC",
+  "name": "Método Evolução Contínua",
+  "icons": [
+    {
+      "src": "/logo-evolucao-continua.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/client",
+  "background_color": "#0D0D0D",
+  "theme_color": "#D4A947",
+  "display": "standalone",
+  "orientation": "portrait"
+}

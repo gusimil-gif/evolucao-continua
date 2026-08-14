@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0D0D0D;
+  --color-bg-secondary: #1A1A1A;
+  --color-bg-tertiary: #252525;
+  --color-accent-primary: #D4A947;
+  --color-accent-secondary: #B8922E;
+  --color-text-primary: #F0EDE6;
+  --color-text-secondary: #8A8A7A;
+  --color-border-custom: #333333;
+
+  /* Extending the spacing scale if needed */
+  --spacing-base: 8px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom utility classes mimicking components if needed */
+@layer components {
+  .glass-panel {
+    @apply bg-bg-secondary/80 backdrop-blur-md shadow-lg border border-border-custom rounded-xl;
+  }
+}

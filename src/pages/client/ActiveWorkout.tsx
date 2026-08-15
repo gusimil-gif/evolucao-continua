@@ -38,10 +38,12 @@ export const ActiveWorkout: React.FC = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [currentSets, setCurrentSets] = useState<ExecutedSet[]>([]);
 
-  // Carregamento Inicial do Treino
   useEffect(() => {
     const fetchWorkout = async () => {
-      if (!planId || !dayId || dayId === 'undefined') return;
+      if (!planId || !dayId || dayId === 'undefined' || planId === 'undefined') {
+        setLoading(false);
+        return;
+      }
       
       try {
         const docRef = doc(db, 'workoutDays', dayId);

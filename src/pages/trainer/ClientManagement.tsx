@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { db, auth } from '../../services/firebaseConfig';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth } from 'firebase/auth';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { db, auth, firebaseConfig } from '../../services/firebaseConfig';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -66,8 +67,12 @@ export const ClientManagement: React.FC = () => {
           return;
         }
 
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        // Criar usuário usando uma instância secundária do Firebase para evitar deslogar o treinador
+        const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+        const secondaryAuth = getAuth(secondaryApp);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, formData.email, formData.password);
         const user = userCredential.user;
+        await deleteApp(secondaryApp); // Limpar a instância secundária
 
         const clientData: UserData = {
           uid: user.uid,

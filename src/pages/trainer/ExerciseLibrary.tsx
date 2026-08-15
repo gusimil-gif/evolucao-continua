@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Search, Plus, Play, Edit2 } from 'lucide-react';
+import { Search, Plus, Play, Edit2, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -77,6 +77,18 @@ export const ExerciseLibrary: React.FC = () => {
     }
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o exercício "${name}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'exercises', id));
+        toast.success('Exercício excluído!');
+        loadExercises();
+      } catch (error) {
+        toast.error('Erro ao excluir');
+      }
+    }
+  };
+
   const filtered = exercises.filter(ex => 
     ex.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
     ex.grupoMuscular.toLowerCase().includes(searchTerm.toLowerCase())
@@ -118,12 +130,22 @@ export const ExerciseLibrary: React.FC = () => {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold text-[#F0EDE6]">{ex.nome}</h3>
-                    <button 
-                      onClick={() => { setFormData(ex); setIsModalOpen(true); }}
-                      className="text-[#8A8A7A] hover:text-[#D4A947] p-1"
-                    >
-                      <Edit2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => { setFormData(ex); setIsModalOpen(true); }}
+                        className="text-[#8A8A7A] hover:text-[#D4A947] p-1"
+                        title="Editar"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(ex.exerciseId as string, ex.nome)}
+                        className="text-[#8A8A7A] hover:text-red-500 p-1"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-[#8A8A7A] mb-4">
                     <span className="px-2 py-1 bg-[#1A1A1A] rounded-md">{ex.grupoMuscular}</span>

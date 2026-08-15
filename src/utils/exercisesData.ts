@@ -11,7 +11,7 @@ export const exercisesData = [
   { nome: "Peck Deck (Voador)", grupoMuscular: "Peito", equipamento: "Máquina", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=Z71bFZrVCVo" },
   { nome: "Flexão de Braço", grupoMuscular: "Peito", equipamento: "Peso Corporal", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=IODxDxX7oi4" },
   { nome: "Flexão Declinada", grupoMuscular: "Peito", equipamento: "Peso Corporal", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=Yb1H_GN5Cw4" },
-  { nome: "Flexão com Pausa", grupoMuscular: "Peito", equipamento: "Peso Corporal", dificuldade: "Avançado", videoUrl: "https://www.youtube.com/watch?v=lffNjjXCOhM" },
+  { nome: "Flexão com Pausa", grupoMuscular: "Peito", equipamento: "Peso Corporal", dificuldade: "Avançado", videoUrl: "https://www.youtube.com/watch?v=y3y8fP0Ld-w" },
   { nome: "Mergulho (Dips) no Banco", grupoMuscular: "Peito", equipamento: "Peso Corporal", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=0326dy_-CzM" },
   { nome: "Supino na Máquina", grupoMuscular: "Peito", equipamento: "Máquina", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=xUm0BiZCWlQ" },
   { nome: "Pullover com Halter", grupoMuscular: "Peito", equipamento: "Halteres", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=sGl1IYdCT5w" },
@@ -139,7 +139,14 @@ export const exercisesData = [
   { nome: "Desenvolvimento no Smith", grupoMuscular: "Ombros", equipamento: "Máquina (Smith)", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=cEwP8U0x47k" },
   { nome: "Remada Curvada no Smith", grupoMuscular: "Costas", equipamento: "Máquina (Smith)", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=wX-yUf4w2Yg" },
   { nome: "Afundo no Smith", grupoMuscular: "Pernas - Quadríceps", equipamento: "Máquina (Smith)", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=6PZ_vD3B03M" },
-  { nome: "Agachamento Sumô com Halter", grupoMuscular: "Pernas - Quadríceps", equipamento: "Halteres", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=mD0kY8P04yQ" }
+  { nome: "Agachamento Sumô com Halter", grupoMuscular: "Pernas - Quadríceps", equipamento: "Halteres", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=mD0kY8P04yQ" },
+
+  // CARDIO / AERÓBICO
+  { nome: "Esteira (Caminhada/Corrida)", grupoMuscular: "Cardio / Aeróbico", equipamento: "Esteira", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=N6J0Mv3N5Qk" },
+  { nome: "Bicicleta Ergométrica", grupoMuscular: "Cardio / Aeróbico", equipamento: "Bicicleta Ergométrica", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=kYJ40R8H-z0" },
+  { nome: "Escada Simulada (Stairmaster)", grupoMuscular: "Cardio / Aeróbico", equipamento: "Escada Simulada", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=kF7p0B_Yd98" },
+  { nome: "Elíptico (Transport)", grupoMuscular: "Cardio / Aeróbico", equipamento: "Elíptico", dificuldade: "Iniciante", videoUrl: "https://www.youtube.com/watch?v=WzF2k81jHag" },
+  { nome: "Corda de Pular", grupoMuscular: "Cardio / Aeróbico", equipamento: "Corda de Pular", dificuldade: "Intermediário", videoUrl: "https://www.youtube.com/watch?v=x7UoXg3o2kY" }
 ].map(ex => ({
   ...ex,
   descricao: "",

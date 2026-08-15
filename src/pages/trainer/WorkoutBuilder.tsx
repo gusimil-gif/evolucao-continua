@@ -157,6 +157,36 @@ export const WorkoutBuilder: React.FC = () => {
     }
   };
 
+  const handleCopyPlan = async (sourceClientId: string) => {
+    try {
+      const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', sourceClientId), where('ativo', '==', true));
+      const pSnap = await getDocs(qPlan);
+      if (pSnap.empty) {
+        toast.error('Este aluno não possui nenhum plano ativo para copiar.');
+        return;
+      }
+
+      const planData = pSnap.docs[0].data() as WorkoutPlan;
+      const qDays = query(collection(db, 'workoutDays'), where('planId', '==', pSnap.docs[0].id));
+      const dSnap = await getDocs(qDays);
+      
+      const map: Record<string, ExerciseDetails[]> = {};
+      dSnap.docs.forEach(d => {
+        const dData = d.data() as WorkoutDay;
+        map[dData.diaSemana] = dData.exercicios || [];
+      });
+
+      setPlanName(planData.nomePlano);
+      setPlanDesc(planData.descricao || '');
+      setActiveDays(planData.diasDaSemana || []);
+      setWorkoutDays(map);
+      
+      toast.success('Treinos copiados! Faça os ajustes e salve para o cliente alvo.');
+    } catch (error) {
+      toast.error('Erro ao copiar treinos.');
+    }
+  };
+
   const filteredExercises = exercises.filter(e => e.nome.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
@@ -186,6 +216,26 @@ export const WorkoutBuilder: React.FC = () => {
                   {clients.map(c => <option key={c.uid} value={c.uid}>{c.nome}</option>)}
                 </select>
               </div>
+
+              {selectedClient && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-sm font-medium text-[#D4A947] mb-1 block">Copiar de outro aluno</label>
+                  <select 
+                    className="w-full bg-[#252525] border border-[#D4A947]/30 rounded-lg h-10 px-3 text-[#D4A947] focus:ring-1 focus:ring-[#D4A947] outline-none text-sm cursor-pointer"
+                    value=""
+                    onChange={e => {
+                      if (e.target.value) {
+                        handleCopyPlan(e.target.value);
+                      }
+                    }}
+                  >
+                    <option value="">Copiar treinos de...</option>
+                    {clients.filter(c => c.uid !== selectedClient).map(c => (
+                      <option key={c.uid} value={c.uid}>{c.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <Input label="Nome do Plano" placeholder="Ex: Hipertrofia Módulo 1" value={planName} onChange={e => setPlanName(e.target.value)} />
               <Input label="Descrição Curta" placeholder="Foco em membros superiores" value={planDesc} onChange={e => setPlanDesc(e.target.value)} />
               

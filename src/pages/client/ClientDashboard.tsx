@@ -23,13 +23,13 @@ export const ClientDashboard: React.FC = () => {
   const [habits, setHabits] = useState({ water: false, diet: false, sleep: false });
   const todayISO = new Date().toISOString().split('T')[0];
 
-  const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  const todayName = DIAS_SEMANA[new Date().getDay()];
+  const DIAS_SEMANA = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Treino E', 'Treino F', 'Treino G'];
 
   useEffect(() => {
     const fetchDashboard = async () => {
       if (!userData?.uid) return;
       try {
+        let loadedDays: WorkoutDay[] = [];
         const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', userData.uid), where('ativo', '==', true));
         const pSnap = await getDocs(qPlan);
         if (!pSnap.empty) {
@@ -39,14 +39,11 @@ export const ClientDashboard: React.FC = () => {
           // Queries para Workout Days
           const qDays = query(collection(db, 'workoutDays'), where('planId', '==', pSnap.docs[0].id));
           const dSnap = await getDocs(qDays);
-          const days = dSnap.docs.map(d => ({ ...d.data(), dayId: d.id } as WorkoutDay));
+          loadedDays = dSnap.docs.map(d => ({ ...d.data(), dayId: d.id } as WorkoutDay));
           
-          // Ordenar pelos dias da semana
-          days.sort((a, b) => DIAS_SEMANA.indexOf(a.diaSemana) - DIAS_SEMANA.indexOf(b.diaSemana));
-          setAllWorkouts(days);
-          
-          const todayW = days.find(d => d.diaSemana === todayName);
-          if (todayW) setTodayWorkout(todayW);
+          // Ordenar pela sequência de Treinos (A, B, C...)
+          loadedDays.sort((a, b) => DIAS_SEMANA.indexOf(a.diaSemana) - DIAS_SEMANA.indexOf(b.diaSemana));
+          setAllWorkouts(loadedDays);
         }
 
         // Queries para Workout Logs (Simplificado para evitar erro de índice no Firestore)
@@ -100,6 +97,24 @@ export const ClientDashboard: React.FC = () => {
         }
         setStreak(currStreak);
         
+        // Calcular o próximo treino da sequência (auto-progressão)
+        let nextWorkout: WorkoutDay | null = null;
+        if (loadedDays.length > 0) {
+          nextWorkout = loadedDays[0]; // Padrão: primeiro treino (Treino A)
+          if (logs.length > 0) {
+            // Ordenar logs por data de execução decrescente (mais recente primeiro)
+            const sortedLogs = [...logs].sort((a, b) => b.dataExecucao.toMillis() - a.dataExecucao.toMillis());
+            const lastLog = sortedLogs[0];
+            
+            const lastDayIndex = loadedDays.findIndex(d => d.dayId === lastLog.dayId);
+            if (lastDayIndex !== -1) {
+              const nextIndex = (lastDayIndex + 1) % loadedDays.length;
+              nextWorkout = loadedDays[nextIndex];
+            }
+          }
+        }
+        setTodayWorkout(nextWorkout);
+        
         // Buscar Hábitos de Hoje
         const habitDoc = doc(db, 'dailyHabits', `${userData.uid}_${todayISO}`);
         const habitSnap = await getDoc(habitDoc);
@@ -117,7 +132,7 @@ export const ClientDashboard: React.FC = () => {
     // Forçar destravamento para evitar tela congelada por erro de rede do firebase
     const timeout = setTimeout(() => setLoading(false), 5000);
     fetchDashboard().finally(() => clearTimeout(timeout));
-  }, [userData, todayName]);
+  }, [userData]);
 
   if (loading) {
      return (
@@ -159,7 +174,7 @@ export const ClientDashboard: React.FC = () => {
              <div className="relative z-10 flex justify-between items-start mb-6">
                <div>
                  <h2 className="text-xl font-bold text-[#F0EDE6] flex items-center gap-2">
-                   <Target className="text-[#D4A947]" /> Treino de Hoje ({todayName})
+                   <Target className="text-[#D4A947]" /> Próximo Treino da Sequência
                  </h2>
                  {activePlan ? (
                    <p className="text-[#8A8A7A] mt-1 font-medium">{activePlan.nomePlano}</p>
@@ -190,12 +205,12 @@ export const ClientDashboard: React.FC = () => {
              )}
            </Card>
 
-           {/* Listagem de Outros Treinos da Semana */}
+           {/* Listagem de Outros Treinos da Sequência */}
            {allWorkouts.length > 0 && (
              <div className="space-y-3 animate-in fade-in duration-700">
-               <h3 className="text-lg font-bold text-[#F0EDE6] px-1">Treinos da Semana</h3>
+               <h3 className="text-lg font-bold text-[#F0EDE6] px-1">Lista de Treinos</h3>
                <div className="grid gap-3">
-                 {allWorkouts.filter(w => w.diaSemana !== todayName).map((workout) => (
+                 {allWorkouts.filter(w => w.dayId !== todayWorkout?.dayId).map((workout) => (
                    <div 
                      key={workout.dayId} 
                      onClick={() => navigate(`/client/workout/${workout.planId}/${workout.dayId}`)}

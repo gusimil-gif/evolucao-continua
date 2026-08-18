@@ -21,12 +21,12 @@ export const WorkoutBuilder: React.FC = () => {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [planName, setPlanName] = useState('');
   const [planDesc, setPlanDesc] = useState('');
-  const [activeDays, setActiveDays] = useState<string[]>(['Segunda']);
+  const [activeDays, setActiveDays] = useState<string[]>(['Treino A']);
   const [workoutDays, setWorkoutDays] = useState<Record<string, ExerciseDetails[]>>({
-    'Segunda': []
+    'Treino A': []
   });
 
-  const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+  const DIAS_SEMANA = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Treino E', 'Treino F', 'Treino G'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,8 +49,8 @@ export const WorkoutBuilder: React.FC = () => {
         setEditingPlanId(null);
         setPlanName('');
         setPlanDesc('');
-        setActiveDays(['Segunda']);
-        setWorkoutDays({'Segunda': []});
+        setActiveDays(['Treino A']);
+        setWorkoutDays({'Treino A': []});
         return;
       }
       
@@ -76,8 +76,8 @@ export const WorkoutBuilder: React.FC = () => {
         setEditingPlanId(null);
         setPlanName('');
         setPlanDesc('');
-        setActiveDays(['Segunda']);
-        setWorkoutDays({'Segunda': []});
+        setActiveDays(['Treino A']);
+        setWorkoutDays({'Treino A': []});
       }
     };
     loadExistingPlan();
@@ -138,10 +138,18 @@ export const WorkoutBuilder: React.FC = () => {
       // Create Days
       for (const day of activeDays) {
         if (workoutDays[day]?.length > 0) {
+          // Extrair grupos musculares únicos dos exercícios desse dia para o nome do treino
+          const groups = Array.from(new Set(workoutDays[day].map(ex => {
+            const meta = exercises.find(e => e.exerciseId === ex.exerciseId);
+            return meta?.grupoMuscular;
+          }).filter(Boolean)));
+          
+          const nomeTreino = groups.length > 0 ? groups.slice(0, 3).join(' + ') : `Foco em ${day}`;
+
           await addDoc(collection(db, 'workoutDays'), {
             planId: pId,
             diaSemana: day,
-            nomeTreino: `Treino de ${day}`,
+            nomeTreino: nomeTreino,
             ordem: DIAS_SEMANA.indexOf(day),
             exercicios: workoutDays[day]
           });
@@ -150,8 +158,8 @@ export const WorkoutBuilder: React.FC = () => {
 
       toast.success(editingPlanId ? 'Plano atualizado com sucesso!' : 'Plano salvo com sucesso!');
       setPlanName('');
-      setWorkoutDays({ 'Segunda': [] });
-      setActiveDays(['Segunda']);
+      setWorkoutDays({ 'Treino A': [] });
+      setActiveDays(['Treino A']);
     } catch (error) {
       toast.error('Erro ao salvar plano.');
     }
@@ -240,7 +248,7 @@ export const WorkoutBuilder: React.FC = () => {
               <Input label="Descrição Curta" placeholder="Foco em membros superiores" value={planDesc} onChange={e => setPlanDesc(e.target.value)} />
               
               <div>
-                <label className="text-sm font-medium text-[#8A8A7A] mb-2 block">Dias Ativos</label>
+                <label className="text-sm font-medium text-[#8A8A7A] mb-2 block">Divisão de Treinos</label>
                 <div className="flex flex-wrap gap-2">
                   {DIAS_SEMANA.map(dia => (
                     <button

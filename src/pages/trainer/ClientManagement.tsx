@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { db, auth, firebaseConfig } from '../../services/firebaseConfig';
@@ -115,6 +115,38 @@ export const ClientManagement: React.FC = () => {
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!editingClient) return;
+    const currentStatus = editingClient.ativo !== false;
+    const newStatus = !currentStatus;
+    
+    try {
+      const clientRef = doc(db, 'users', editingClient.uid);
+      await updateDoc(clientRef, { ativo: newStatus });
+      toast.success(newStatus ? 'Acesso do aluno reativado!' : 'Acesso do aluno pausado!');
+      setIsModalOpen(false);
+      loadClients();
+    } catch (error) {
+      toast.error('Erro ao alterar status.');
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!editingClient) return;
+    if (window.confirm(`Tem certeza de que deseja EXCLUIR o aluno "${editingClient.nome}"? Esta ação removerá o perfil dele e ele perderá todo o acesso. Os treinos dele e histórico no Firestore não serão excluídos, mas ele não conseguirá mais logar.`)) {
+      try {
+        const clientRef = doc(db, 'users', editingClient.uid);
+        await updateDoc(clientRef, { ativo: false }); // Desativa primeiro para segurança de logout imediato
+        await deleteDoc(clientRef);
+        toast.success('Aluno excluído com sucesso!');
+        setIsModalOpen(false);
+        loadClients();
+      } catch (error) {
+        toast.error('Erro ao excluir aluno.');
+      }
+    }
+  };
+
   const openNewClientModal = () => {
     setEditingClient(null);
     setFormData({ nome: '', email: '', telefone: '', dataNascimento: '', password: '' });
@@ -170,13 +202,19 @@ export const ClientManagement: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(c => (
-              <div key={c.uid} className="bg-[#252525] p-5 rounded-xl border border-[#333333] flex items-center gap-4 hover:border-[#D4A947]/50 transition-colors cursor-pointer group" onClick={() => openEditClientModal(c)}>
-                <UserCircle size={48} className="text-[#8A8A7A]" />
+              <div key={c.uid} className={`bg-[#252525] p-5 rounded-xl border border-[#333333] flex items-center gap-4 hover:border-[#D4A947]/50 transition-all cursor-pointer group ${c.ativo === false ? 'opacity-60 border-dashed' : ''}`} onClick={() => openEditClientModal(c)}>
+                <UserCircle size={48} className={c.ativo === false ? 'text-red-500/50' : 'text-[#8A8A7A]'} />
                 <div className="flex-1 overflow-hidden">
                   <h3 className="font-semibold text-[#F0EDE6] truncate">{c.nome}</h3>
                   <p className="text-sm text-[#8A8A7A] truncate">{c.email}</p>
-                  <div className="flex items-center gap-1 text-[#D4A947] mt-2 text-xs font-medium">
-                    <Activity size={12} /> {c.dataNascimento ? 'Verificado' : 'Em andamento'}
+                  <div className="flex items-center gap-2 mt-2 text-xs font-medium">
+                    {c.ativo === false ? (
+                      <span className="px-2 py-0.5 bg-red-500/10 text-red-500 rounded border border-red-500/20">Pausado</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[#D4A947]">
+                        <Activity size={12} /> {c.dataNascimento ? 'Verificado' : 'Em andamento'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="opacity-0 group-hover:opacity-100 text-xs text-[#8A8A7A] border border-[#333333] px-2 py-1 rounded transition-opacity">Editar</div>
@@ -212,9 +250,27 @@ export const ClientManagement: React.FC = () => {
                  O Firebase bloqueia a mudança direta de senhas por conta da privacidade do usuário.
                  Para trocar a senha, clique abaixo e o aluno receberá um link oficial no e-mail.
                </p>
-               <button type="button" onClick={handleResetPassword} className="text-sm text-[#D4A947] hover:underline">
+               <button type="button" onClick={handleResetPassword} className="text-sm text-[#D4A947] hover:underline block mb-4">
                  Mandar link de Redefinição de Senha
                </button>
+
+               <h4 className="text-sm font-medium text-red-500 border-t border-[#333333] pt-4 mb-2">Zona de Perigo</h4>
+               <div className="flex gap-3">
+                 <button 
+                   type="button" 
+                   onClick={handleToggleStatus}
+                   className={`flex-1 text-xs font-semibold py-2 rounded-lg border transition-colors ${editingClient.ativo === false ? 'border-green-500/20 text-green-500 hover:bg-green-500/10' : 'border-orange-500/20 text-orange-500 hover:bg-orange-500/10'}`}
+                 >
+                   {editingClient.ativo === false ? "Reativar Aluno" : "Pausar Aluno"}
+                 </button>
+                 <button 
+                   type="button" 
+                   onClick={handleDeleteClient}
+                   className="flex-1 text-xs font-semibold py-2 rounded-lg border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-colors"
+                 >
+                   Excluir Aluno
+                 </button>
+               </div>
              </div>
           )}
 

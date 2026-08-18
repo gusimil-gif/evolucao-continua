@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import type { UserData } from '../types';
@@ -26,17 +26,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
       if (user) {
         // Fetch custom user data from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
+        if (userDoc.exists() && userDoc.data().ativo !== false) {
+          setCurrentUser(user);
           setUserData(userDoc.data() as UserData);
         } else {
+          await signOut(auth);
+          setCurrentUser(null);
           setUserData(null);
         }
       } else {
+        setCurrentUser(null);
         setUserData(null);
       }
       setLoading(false);

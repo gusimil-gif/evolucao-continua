@@ -297,7 +297,7 @@ export const WorkoutBuilder: React.FC = () => {
                     }}
                   >
                     <option value="">+ Dia</option>
-                    {activeDays.map(d => <option key={d} value={d}>{d}</option>)}
+                    {activeDays.slice().sort((a, b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b)).map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               ))}
@@ -310,7 +310,7 @@ export const WorkoutBuilder: React.FC = () => {
           {activeDays.length === 0 ? (
              <div className="text-center py-20 text-[#8A8A7A]">Nenhum dia selecionado para este plano.</div>
           ) : (
-             activeDays.map(day => (
+             activeDays.slice().sort((a, b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b)).map(day => (
                <Card key={day}>
                  <h2 className="text-lg font-bold text-[#F0EDE6] mb-4 border-b border-[#333333] pb-2">{day}</h2>
                  

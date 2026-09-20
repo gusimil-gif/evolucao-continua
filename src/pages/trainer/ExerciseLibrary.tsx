@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
+import { getExercisesCached, invalidateExerciseCache } from '../../services/exerciseCache';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -13,7 +14,7 @@ import type { Exercise } from '../../types';
 export const ExerciseLibrary: React.FC = () => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { userData } = useAuth();
   
@@ -21,16 +22,8 @@ export const ExerciseLibrary: React.FC = () => {
   const [formData, setFormData] = useState<Partial<Exercise>>({});
 
   const loadExercises = async () => {
-    setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, 'exercises'));
-      const docs = snapshot.docs.map(doc => doc.data() as Exercise);
-      // Ordenação local (em memória) para não depender de índices complexos no Firestore
-      docs.sort((a, b) => {
-        if (a.grupoMuscular < b.grupoMuscular) return -1;
-        if (a.grupoMuscular > b.grupoMuscular) return 1;
-        return a.nome.localeCompare(b.nome);
-      });
+      const docs = await getExercisesCached();
       setExercises(docs);
     } catch (error) {
       toast.error('Erro ao carregar exercícios');
@@ -71,6 +64,7 @@ export const ExerciseLibrary: React.FC = () => {
       await setDoc(ref, payload);
       toast.success('Exercício salvo!');
       setIsModalOpen(false);
+      invalidateExerciseCache();
       loadExercises();
     } catch (error) {
       toast.error('Erro ao salvar');
@@ -82,6 +76,7 @@ export const ExerciseLibrary: React.FC = () => {
       try {
         await deleteDoc(doc(db, 'exercises', id));
         toast.success('Exercício excluído!');
+        invalidateExerciseCache();
         loadExercises();
       } catch (error) {
         toast.error('Erro ao excluir');

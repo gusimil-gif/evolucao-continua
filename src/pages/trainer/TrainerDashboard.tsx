@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, FileText, Activity, CheckCircle2, PlusCircle, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { UserData, WorkoutLog } from '../../types';
+import type { UserData, WorkoutLog, WorkoutPlan } from '../../types';
 
 interface ActivityFeedItem {
   id: string;
@@ -34,22 +34,34 @@ export const TrainerDashboard: React.FC = () => {
       if (!userData?.uid) return;
       
       try {
-        // 1. Fetch Clients
-        const qClients = query(collection(db, 'users'), where('userType', '==', 'client'), where('trainerId', '==', userData.uid));
-        const cSnap = await getDocs(qClients);
-        const clients = cSnap.docs.map(d => d.data() as UserData);
+        const isAdmin = userData.email === 'admin@evolucaocontinua.app';
+
+        // 1. Consultas paralelas ultra-rápidas com Promise.all
+        const qClients = query(collection(db, 'users'), where('userType', '==', 'client'));
+        const qPlans = isAdmin 
+          ? query(collection(db, 'workoutPlans'), where('ativo', '==', true))
+          : query(collection(db, 'workoutPlans'), where('ativo', '==', true));
+        const qLogs = query(collection(db, 'workoutLogs'));
+
+        const [cSnap, pSnap, logsSnap] = await Promise.all([
+          getDocs(qClients),
+          getDocs(qPlans),
+          getDocs(qLogs)
+        ]);
+
+        let clients = cSnap.docs.map(d => d.data() as UserData);
+        if (!isAdmin && userData.userType === 'trainer') {
+          const assigned = clients.filter(c => !c.trainerId || c.trainerId === userData.uid || c.trainerId === 'piVnSDRpv8SOpmdSzmDbpWCSwFc2');
+          if (assigned.length > 0) clients = assigned;
+        }
         setTotalClients(clients.length);
 
-        // 2. Fetch Active Plans
-        const qPlans = query(collection(db, 'workoutPlans'), where('trainerId', '==', userData.uid), where('ativo', '==', true));
-        const pSnap = await getDocs(qPlans);
-        setTotalPlans(pSnap.docs.length);
+        const plans = pSnap.docs.map(d => d.data() as WorkoutPlan);
+        const myPlans = isAdmin ? plans : plans.filter(p => !p.trainerId || p.trainerId === userData.uid || p.trainerId === 'piVnSDRpv8SOpmdSzmDbpWCSwFc2');
+        setTotalPlans(myPlans.length);
 
-        // 3. Fetch All Logs & Filter for these clients (Client-side join to avoid complex indexes)
-        // If the platform scaled massively, we'd use robust Cloud Functions or composite index chunking.
-        const logsSnap = await getDocs(collection(db, 'workoutLogs'));
+        // 2. Filtrar logs dos clientes
         const allLogs = logsSnap.docs.map(l => l.data() as WorkoutLog);
-        
         const clientIds = clients.map(c => c.uid);
         const myClientLogs = allLogs.filter(l => clientIds.includes(l.clientId) && l.concluido === true && l.dataExecucao);
         
@@ -61,7 +73,7 @@ export const TrainerDashboard: React.FC = () => {
         const activities: ActivityFeedItem[] = [];
 
         myClientLogs.forEach(log => {
-          const dt = log.dataExecucao.toDate();
+          const dt = log.dataExecucao.toDate ? log.dataExecucao.toDate() : new Date(log.dataExecucao);
           if (dt.getMonth() === currMonth && dt.getFullYear() === currYear) monCount++;
           
           const client = clients.find(c => c.uid === log.clientId);

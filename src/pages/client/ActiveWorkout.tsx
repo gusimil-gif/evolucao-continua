@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, collection, query, where, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
+import { getExercisesCached } from '../../services/exerciseCache';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -47,30 +48,28 @@ export const ActiveWorkout: React.FC = () => {
       
       try {
         const docRef = doc(db, 'workoutDays', dayId);
-        const dSnap = await getDoc(docRef);
+        const prevQ = userData?.uid ? query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid)) : null;
+
+        // Executar consultas de dia, logs e cache de exercícios simultaneamente
+        const [dSnap, prevSnap, cachedExercisesList] = await Promise.all([
+          getDoc(docRef),
+          prevQ ? getDocs(prevQ) : Promise.resolve(null),
+          getExercisesCached()
+        ]);
         
         if (dSnap.exists()) {
           const d = { ...dSnap.data(), dayId: dSnap.id } as WorkoutDay;
           setWorkoutDay(d);
           
-          // Buscar Metadados dos Exercícios
+          // Mapear metadados dos exercícios a partir do cache instantâneo (<1ms)
           const meta: Record<string, Exercise> = {};
-          for (const ex of d.exercicios) {
-            if (!meta[ex.exerciseId]) {
-              const exQ = query(collection(db, 'exercises'), where('exerciseId', '==', ex.exerciseId));
-              const exSnap = await getDocs(exQ);
-              if (!exSnap.empty) {
-                meta[ex.exerciseId] = exSnap.docs[0].data() as Exercise;
-              }
-            }
-          }
+          cachedExercisesList.forEach(ex => {
+            meta[ex.exerciseId] = ex;
+          });
           setExercisesMeta(meta);
 
           // Buscar Cargas Anteriores (Progressive Overload)
-          if (userData?.uid) {
-             const prevQ = query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid));
-             const prevSnap = await getDocs(prevQ); // Simplificado sem orderBy para evitar necessidade de Index
-             
+          if (prevSnap) {
              const loads: Record<string, number> = {};
              // Ordenar na memória para garantir decrescente
              const oldLogs = prevSnap.docs

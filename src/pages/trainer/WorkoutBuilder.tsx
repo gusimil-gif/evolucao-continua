@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
+import { getExercisesCached } from '../../services/exerciseCache';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,10 +13,18 @@ import type { UserData, Exercise, ExerciseDetails, WorkoutPlan, WorkoutDay } fro
 export const WorkoutBuilder: React.FC = () => {
   const { userData } = useAuth();
   
-  const [clients, setClients] = useState<UserData[]>([]);
+  const [clients, setClients] = useState<UserData[]>(() => {
+    try {
+      const cached = localStorage.getItem('ec_clients_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadingPlan, setLoadingPlan] = useState(false);
   
   // Plan State
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
@@ -30,15 +39,27 @@ export const WorkoutBuilder: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Load Clients
+      // 1. Carregar exercícios instantaneamente (<1ms do cache local)
+      getExercisesCached().then(setExercises);
+
+      // 2. Carregar clientes da plataforma
       if (userData?.uid) {
-        const qClients = query(collection(db, 'users'), where('userType', '==', 'client'), where('trainerId', '==', userData.uid));
-        const cSnap = await getDocs(qClients);
-        setClients(cSnap.docs.map(d => d.data() as UserData));
+        try {
+          const qClients = query(collection(db, 'users'), where('userType', '==', 'client'));
+          const cSnap = await getDocs(qClients);
+          let docs = cSnap.docs.map(d => d.data() as UserData);
+          if (userData.email !== 'admin@evolucaocontinua.app' && userData.userType === 'trainer') {
+            const assigned = docs.filter(c => !c.trainerId || c.trainerId === userData.uid || c.trainerId === 'piVnSDRpv8SOpmdSzmDbpWCSwFc2');
+            if (assigned.length > 0) docs = assigned;
+          }
+          setClients(docs);
+          try {
+            localStorage.setItem('ec_clients_cache', JSON.stringify(docs));
+          } catch (_) {}
+        } catch (e) {
+          console.error('Erro ao carregar clientes:', e);
+        }
       }
-      // Load Exercises
-      const eSnap = await getDocs(collection(db, 'exercises'));
-      setExercises(eSnap.docs.map(d => d.data() as Exercise));
     };
     fetchData();
   }, [userData]);
@@ -54,30 +75,37 @@ export const WorkoutBuilder: React.FC = () => {
         return;
       }
       
-      const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', selectedClient), where('ativo', '==', true));
-      const pSnap = await getDocs(qPlan);
-      if (!pSnap.empty) {
-        const pDoc = pSnap.docs[0];
-        const data = pDoc.data() as WorkoutPlan;
-        setEditingPlanId(pDoc.id);
-        setPlanName(data.nomePlano);
-        setPlanDesc(data.descricao || '');
-        setActiveDays(data.diasDaSemana || []);
-        
-        const qDays = query(collection(db, 'workoutDays'), where('planId', '==', pDoc.id));
-        const dSnap = await getDocs(qDays);
-        const map: Record<string, ExerciseDetails[]> = {};
-        dSnap.docs.forEach(d => {
-          const dData = d.data() as WorkoutDay;
-          map[dData.diaSemana] = dData.exercicios || [];
-        });
-        setWorkoutDays(map);
-      } else {
-        setEditingPlanId(null);
-        setPlanName('');
-        setPlanDesc('');
-        setActiveDays(['Treino A']);
-        setWorkoutDays({'Treino A': []});
+      setLoadingPlan(true);
+      try {
+        const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', selectedClient), where('ativo', '==', true));
+        const pSnap = await getDocs(qPlan);
+        if (!pSnap.empty) {
+          const pDoc = pSnap.docs[0];
+          const data = pDoc.data() as WorkoutPlan;
+          setEditingPlanId(pDoc.id);
+          setPlanName(data.nomePlano);
+          setPlanDesc(data.descricao || '');
+          setActiveDays(data.diasDaSemana || ['Treino A']);
+          
+          const qDays = query(collection(db, 'workoutDays'), where('planId', '==', pDoc.id));
+          const dSnap = await getDocs(qDays);
+          const map: Record<string, ExerciseDetails[]> = {};
+          dSnap.docs.forEach(d => {
+            const dData = d.data() as WorkoutDay;
+            map[dData.diaSemana] = dData.exercicios || [];
+          });
+          setWorkoutDays(map);
+        } else {
+          setEditingPlanId(null);
+          setPlanName('');
+          setPlanDesc('');
+          setActiveDays(['Treino A']);
+          setWorkoutDays({'Treino A': []});
+        }
+      } catch (err) {
+        console.error('Erro ao carregar plano existente:', err);
+      } finally {
+        setLoadingPlan(false);
       }
     };
     loadExistingPlan();
@@ -307,7 +335,16 @@ export const WorkoutBuilder: React.FC = () => {
 
         {/* Lado Direito: Workspace por Dias */}
         <div className="lg:col-span-2 space-y-6">
-          {activeDays.length === 0 ? (
+          {loadingPlan ? (
+            <div className="space-y-4">
+              {[1, 2].map(n => (
+                <Card key={n} className="animate-pulse space-y-3">
+                  <div className="h-6 bg-[#333333] rounded w-1/4 mb-4" />
+                  <div className="h-24 bg-[#252525] rounded-lg border border-[#333333]" />
+                </Card>
+              ))}
+            </div>
+          ) : activeDays.length === 0 ? (
              <div className="text-center py-20 text-[#8A8A7A]">Nenhum dia selecionado para este plano.</div>
           ) : (
              activeDays.slice().sort((a, b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b)).map(day => (

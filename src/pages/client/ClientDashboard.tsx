@@ -31,7 +31,20 @@ export const ClientDashboard: React.FC = () => {
       try {
         let loadedDays: WorkoutDay[] = [];
         const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', userData.uid), where('ativo', '==', true));
-        const pSnap = await getDocs(qPlan);
+        const qLogs = query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid));
+        const habitDoc = doc(db, 'dailyHabits', `${userData.uid}_${todayISO}`);
+
+        // Executa consultas independentes em paralelo com Promise.all
+        const [pSnap, logsSnap, habitSnap] = await Promise.all([
+          getDocs(qPlan),
+          getDocs(qLogs),
+          getDoc(habitDoc)
+        ]);
+
+        if (habitSnap.exists()) {
+          setHabits(habitSnap.data() as any);
+        }
+
         if (!pSnap.empty) {
           const plan = pSnap.docs[0].data() as WorkoutPlan;
           setActivePlan(plan);
@@ -46,9 +59,6 @@ export const ClientDashboard: React.FC = () => {
           setAllWorkouts(loadedDays);
         }
 
-        // Queries para Workout Logs (Simplificado para evitar erro de índice no Firestore)
-        const qLogs = query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid));
-        const logsSnap = await getDocs(qLogs);
         const logs = logsSnap.docs.map(l => l.data() as WorkoutLog).filter(l => l.concluido === true);
         
         // Calcular Mês
@@ -115,12 +125,6 @@ export const ClientDashboard: React.FC = () => {
         }
         setTodayWorkout(nextWorkout);
         
-        // Buscar Hábitos de Hoje
-        const habitDoc = doc(db, 'dailyHabits', `${userData.uid}_${todayISO}`);
-        const habitSnap = await getDoc(habitDoc);
-        if (habitSnap.exists()) {
-           setHabits(habitSnap.data() as any);
-        }
 
       } catch (error) {
         console.error("Erro ao carregar dashboard", error);

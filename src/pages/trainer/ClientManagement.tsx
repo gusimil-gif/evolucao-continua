@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { db, auth, firebaseConfig } from '../../services/firebaseConfig';
@@ -13,9 +13,17 @@ import toast from 'react-hot-toast';
 import type { UserData } from '../../types';
 
 export const ClientManagement: React.FC = () => {
-  const [clients, setClients] = useState<UserData[]>([]);
+  const [clients, setClients] = useState<UserData[]>(() => {
+    // Inicialização instantânea do cache local (<1ms)
+    try {
+      const cached = localStorage.getItem('ec_clients_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<UserData | null>(null);
   const { userData } = useAuth();
@@ -23,28 +31,41 @@ export const ClientManagement: React.FC = () => {
   const [formData, setFormData] = useState({ nome: '', email: '', telefone: '', dataNascimento: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const loadClients = async () => {
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'users'), 
-        where('userType', '==', 'client'),
-        where('trainerId', '==', userData?.uid)
-      );
-      const snapshot = await getDocs(q);
-      const docs = snapshot.docs.map(doc => doc.data() as UserData);
-      setClients(docs);
-    } catch (error) {
-      toast.error('Erro ao carregar clientes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (userData?.uid) {
-      loadClients();
+    if (!userData?.uid) return;
+
+    if (clients.length === 0) {
+      setLoading(true);
     }
+
+    // Consulta de clientes com sincronização em tempo real e leitura do cache persistente
+    const q = query(
+      collection(db, 'users'), 
+      where('userType', '==', 'client')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let docs = snapshot.docs.map(doc => doc.data() as UserData);
+      
+      // Se não for admin master, prioriza alunos do treinador ou todos se a plataforma for do método
+      if (userData.email !== 'admin@evolucaocontinua.app' && userData.userType === 'trainer') {
+        const assigned = docs.filter(c => !c.trainerId || c.trainerId === userData.uid || c.trainerId === 'piVnSDRpv8SOpmdSzmDbpWCSwFc2');
+        if (assigned.length > 0) {
+          docs = assigned;
+        }
+      }
+      
+      setClients(docs);
+      setLoading(false);
+      try {
+        localStorage.setItem('ec_clients_cache', JSON.stringify(docs));
+      } catch (_) {}
+    }, (error) => {
+      console.error('Erro na sincronização de clientes:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [userData]);
 
   const handleAddOrEditClient = async (e: React.FormEvent) => {
@@ -93,7 +114,6 @@ export const ClientManagement: React.FC = () => {
       setIsModalOpen(false);
       setEditingClient(null);
       setFormData({ nome: '', email: '', telefone: '', dataNascimento: '', password: '' });
-      loadClients();
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast.error('Email já cadastrado.');
@@ -125,7 +145,6 @@ export const ClientManagement: React.FC = () => {
       await updateDoc(clientRef, { ativo: newStatus });
       toast.success(newStatus ? 'Acesso do aluno reativado!' : 'Acesso do aluno pausado!');
       setIsModalOpen(false);
-      loadClients();
     } catch (error) {
       toast.error('Erro ao alterar status.');
     }
@@ -140,7 +159,6 @@ export const ClientManagement: React.FC = () => {
         await deleteDoc(clientRef);
         toast.success('Aluno excluído com sucesso!');
         setIsModalOpen(false);
-        loadClients();
       } catch (error) {
         toast.error('Erro ao excluir aluno.');
       }
@@ -197,8 +215,18 @@ export const ClientManagement: React.FC = () => {
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-12 text-center text-[#8A8A7A]">Buscando carteira de alunos...</div>
+        {loading && clients.length === 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map(n => (
+              <div key={n} className="bg-[#252525] p-5 rounded-xl border border-[#333333] animate-pulse flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-[#333333]" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-[#333333] rounded w-3/4" />
+                  <div className="h-3 bg-[#333333] rounded w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(c => (

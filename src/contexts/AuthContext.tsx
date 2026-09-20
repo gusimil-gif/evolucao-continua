@@ -21,24 +21,43 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<UserData | null>(() => {
+    try {
+      const cached = sessionStorage.getItem('ec_session_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !sessionStorage.getItem('ec_session_user');
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Fetch custom user data from Firestore
+        // Fetch custom user data from Firestore (instantaneosly from IndexedDB cache)
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists() && userDoc.data().ativo !== false) {
+          const data = userDoc.data() as UserData;
           setCurrentUser(user);
-          setUserData(userDoc.data() as UserData);
+          setUserData(data);
+          try {
+            sessionStorage.setItem('ec_session_user', JSON.stringify(data));
+          } catch (_) {}
         } else {
+          try { sessionStorage.removeItem('ec_session_user'); } catch (_) {}
           await signOut(auth);
           setCurrentUser(null);
           setUserData(null);
         }
       } else {
+        try { sessionStorage.removeItem('ec_session_user'); } catch (_) {}
         setCurrentUser(null);
         setUserData(null);
       }

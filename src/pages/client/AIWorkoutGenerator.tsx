@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { generateAIWorkoutPlan, type AIWorkoutResponse } from '../../services/aiWorkoutService';
+import { getExercisesCached } from '../../services/exerciseCache';
 import { Sparkles, Camera, ArrowRight, ShieldAlert, Dumbbell, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -88,9 +89,8 @@ export const AIWorkoutGenerator: React.FC = () => {
         await updateDoc(doc(db, 'workoutPlans', exDoc.id), { ativo: false });
       }
 
-      // 2. Buscar biblioteca de exercícios para vincular IDs reais
-      const exSnapAll = await getDocs(collection(db, 'exercises'));
-      const exercisesList = exSnapAll.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      // 2. Buscar biblioteca de exercícios para vincular IDs reais (instantâneo do cache)
+      const exercisesList = await getExercisesCached();
 
       const diasSemana = generatedPlan.dias.map(d => d.diaSemana);
 
@@ -121,7 +121,7 @@ export const AIWorkoutGenerator: React.FC = () => {
           );
 
           return {
-            exerciseId: matchedEx ? matchedEx.id : (exercisesList[0]?.id || 'ex-default'),
+            exerciseId: matchedEx ? matchedEx.exerciseId : (exercisesList[0]?.exerciseId || 'ex-default'),
             ordem: idx,
             series: Number(ex.series) || 3,
             repeticoes: String(ex.repeticoes || '10-12'),

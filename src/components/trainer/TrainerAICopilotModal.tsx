@@ -24,7 +24,15 @@ interface TrainerAICopilotModalProps {
     planDesc: string;
     activeDays: string[];
     workoutDays: Record<string, ExerciseDetails[]>;
+    targetClientId?: string;
   }) => void;
+  onDirectOverwrite?: (data: {
+    planName: string;
+    planDesc: string;
+    activeDays: string[];
+    workoutDays: Record<string, ExerciseDetails[]>;
+    targetClientId: string;
+  }) => Promise<void>;
 }
 
 export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
@@ -33,8 +41,10 @@ export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
   clients,
   selectedClientId,
   onApplyWorkout,
+  onDirectOverwrite,
 }) => {
   const [clientId, setClientId] = useState<string>(selectedClientId || '');
+  const [isSavingDirect, setIsSavingDirect] = useState(false);
   const [objetivo, setObjetivo] = useState<'hipertrofia' | 'emagrecimento' | 'forca' | 'condicionamento' | 'definicao'>('hipertrofia');
   const [frequencia, setFrequencia] = useState<number>(4);
   const [nivel, setNivel] = useState<'iniciante' | 'intermediario' | 'avancado'>('intermediario');
@@ -126,8 +136,8 @@ export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
     }
   };
 
-  const handleApplyToWorkspace = async () => {
-    if (!generatedPlan) return;
+  const prepareWorkoutPayload = async () => {
+    if (!generatedPlan) return null;
 
     // Buscar lista de exercícios para vincular IDs corretos
     const exercisesList = await getExercisesCached();
@@ -158,15 +168,51 @@ export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
       });
     });
 
-    onApplyWorkout({
+    return {
       planName: generatedPlan.nomePlano,
       planDesc: generatedPlan.descricao,
       activeDays,
-      workoutDays
-    });
+      workoutDays,
+      targetClientId: clientId || undefined
+    };
+  };
 
-    toast.success('Ficha aplicada na Montagem de Treinos com sucesso!');
+  const handleApplyToWorkspace = async () => {
+    const payload = await prepareWorkoutPayload();
+    if (!payload) return;
+
+    onApplyWorkout(payload);
+    toast.success('Ficha aplicada no Editor! Revise as cargas e clique em Salvar/Sobrescrever.');
     onClose();
+  };
+
+  const handleDirectOverwrite = async () => {
+    if (!clientId) {
+      toast.error('Selecione um aluno para sobrescrever a ficha.');
+      return;
+    }
+    if (!onDirectOverwrite) return;
+
+    const payload = await prepareWorkoutPayload();
+    if (!payload) return;
+
+    try {
+      setIsSavingDirect(true);
+      await onDirectOverwrite({
+        planName: payload.planName,
+        planDesc: payload.planDesc,
+        activeDays: payload.activeDays,
+        workoutDays: payload.workoutDays,
+        targetClientId: clientId
+      });
+      toast.success('Ficha sobrescrita e ativada imediatamente no app do aluno!');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao sobrescrever ficha do aluno.');
+    } finally {
+      setIsSavingDirect(false);
+    }
   };
 
   return (
@@ -503,22 +549,47 @@ export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
               </div>
             </div>
 
+            {/* Aluno Alvo Informação de Sobrescrita */}
+            {clientId && (
+              <div className="bg-[#D4A947]/10 border border-[#D4A947]/30 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-[#F0EDE6]">
+                  <span className="text-[#D4A947] font-bold uppercase tracking-wider">Aluno Alvo:</span>
+                  <span className="font-semibold">{clients.find(c => c.uid === clientId)?.nome || 'Aluno Selecionado'}</span>
+                  <span className="text-[#8A8A7A]">({clients.find(c => c.uid === clientId)?.email || ''})</span>
+                </div>
+                <span className="text-[11px] bg-[#D4A947]/20 text-[#D4A947] px-2.5 py-1 rounded font-semibold border border-[#D4A947]/30">
+                  Sobrescreverá a ficha ativa atual
+                </span>
+              </div>
+            )}
+
             {/* Disclaimer */}
             <p className="text-xs text-[#8A8A7A] border-t border-[#333333] pt-4 leading-relaxed">
               {generatedPlan.disclaimer}
             </p>
 
             {/* Ações Finais */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button type="button" variant="ghost" onClick={onClose}>Fechar</Button>
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+              <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
               <Button 
                 type="button" 
+                variant="secondary" 
                 onClick={handleApplyToWorkspace}
-                className="bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold px-6"
+                className="border border-[#D4A947] text-[#D4A947] hover:bg-[#D4A947]/10 text-xs font-semibold"
               >
-                <CheckCircle2 size={18} className="mr-2" />
-                Aplicar Diretamente na Ficha do Aluno
+                Aplicar no Editor (Revisar / Ajustar)
               </Button>
+              {onDirectOverwrite && clientId && (
+                <Button 
+                  type="button" 
+                  disabled={isSavingDirect}
+                  onClick={handleDirectOverwrite}
+                  className="bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold text-xs px-5 shadow-lg shadow-[#D4A947]/20"
+                >
+                  <CheckCircle2 size={16} className="mr-1.5" />
+                  {isSavingDirect ? 'Sobrescrevendo...' : '⚡ Sobrescrever e Ativar no App do Aluno'}
+                </Button>
+              )}
             </div>
           </div>
         )}

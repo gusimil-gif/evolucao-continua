@@ -1,15 +1,17 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { exercisesData } from '../utils/exercisesData';
+import { getExerciseVideoUrl } from '../utils/videoHelper';
 import type { Exercise } from '../types';
 
 const CACHE_KEY = 'ec_exercises_cache_v1';
 let memoryCache: Exercise[] | null = null;
 let isFetchingRemote = false;
 
-// Converte os dados estáticos para o formato Exercise padrão
+// Converte os dados estáticos para o formato Exercise padrão com links de vídeo garantidos
 const defaultExercises: Exercise[] = exercisesData.map((ex, index) => {
   const id = `ex_seed_${index}_${ex.nome.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const resolvedVideo = getExerciseVideoUrl(ex.nome, ex.videoUrl);
   return {
     exerciseId: id,
     nome: ex.nome,
@@ -17,8 +19,8 @@ const defaultExercises: Exercise[] = exercisesData.map((ex, index) => {
     equipamento: ex.equipamento,
     dificuldade: ex.dificuldade,
     descricao: '',
-    videoUrl: ex.videoUrl,
-    videoUrlPadrao: ex.videoUrl,
+    videoUrl: resolvedVideo,
+    videoUrlPadrao: resolvedVideo,
     criadoPor: 'system',
     ativo: true
   };
@@ -70,10 +72,16 @@ async function revalidateRemote() {
   try {
     const snap = await getDocs(collection(db, 'exercises'));
     if (!snap.empty) {
-      const remoteDocs = snap.docs.map(d => ({
-        exerciseId: d.id,
-        ...d.data()
-      })) as Exercise[];
+      const remoteDocs = snap.docs.map(d => {
+        const data = d.data();
+        const safeVideo = getExerciseVideoUrl(data.nome, data.videoUrl);
+        return {
+          exerciseId: d.id,
+          ...data,
+          videoUrl: safeVideo,
+          videoUrlPadrao: data.videoUrlPadrao || safeVideo
+        };
+      }) as Exercise[];
 
       remoteDocs.sort((a, b) => {
         if (a.grupoMuscular < b.grupoMuscular) return -1;

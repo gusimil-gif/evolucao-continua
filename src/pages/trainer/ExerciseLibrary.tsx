@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Search, Plus, Play, Edit2, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
+import { ExerciseVideoModal } from '../../components/shared/ExerciseVideoModal';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import type { Exercise } from '../../types';
@@ -16,6 +17,7 @@ export const ExerciseLibrary: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [videoModalExercise, setVideoModalExercise] = useState<Exercise | null>(null);
   const { userData } = useAuth();
   
   // Form State
@@ -148,13 +150,13 @@ export const ExerciseLibrary: React.FC = () => {
                   </div>
                 </div>
                 
-                {ex.videoUrl ? (
-                  <a href={ex.videoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#D4A947] text-sm hover:underline font-medium">
-                    <Play size={16} fill="currentColor" /> Ver Vídeo
-                  </a>
-                ) : (
-                  <span className="text-sm text-[#8A8A7A]">Sem vídeo</span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setVideoModalExercise(ex)}
+                  className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#D4A947]/10 text-[#D4A947] hover:bg-[#D4A947]/20 border border-[#D4A947]/20 transition-all cursor-pointer"
+                >
+                  <Play size={14} fill="currentColor" /> Ver Vídeo e Guia
+                </button>
               </div>
             ))}
             {filtered.length === 0 && (
@@ -200,6 +202,12 @@ export const ExerciseLibrary: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      <ExerciseVideoModal
+        isOpen={!!videoModalExercise}
+        onClose={() => setVideoModalExercise(null)}
+        exercise={videoModalExercise}
+      />
     </div>
   );
 };

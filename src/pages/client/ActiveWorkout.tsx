@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { ArrowLeft, Award, Video, Play, Pause, ChevronRight, CheckCircle2, Activity } from 'lucide-react';
+import { ExerciseVideoModal } from '../../components/shared/ExerciseVideoModal';
 import toast from 'react-hot-toast';
 import type { WorkoutDay, ExerciseDetails, Exercise, ExecutedSet, WorkoutLog } from '../../types';
 
@@ -33,6 +34,7 @@ export const ActiveWorkout: React.FC = () => {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [rpe, setRpe] = useState<number>(3);
   const [feedback, setFeedback] = useState('');
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   // Execution Timer State
   const [exTime, setExTime] = useState(0);
@@ -449,11 +451,13 @@ export const ActiveWorkout: React.FC = () => {
            </div>
         )}
 
-        {currentMeta?.videoUrl && (
-          <a href={currentMeta.videoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-red-400 font-bold hover:bg-red-500/20 hover:border-red-500/50 transition-all shadow-[0_0_15px_rgba(239,68,68,0.05)]">
-             <Video size={18} /> Tutorial no YouTube
-          </a>
-        )}
+        <button
+          type="button"
+          onClick={() => setIsVideoModalOpen(true)}
+          className="flex items-center justify-center gap-2 w-full bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-red-400 font-bold hover:bg-red-500/20 hover:border-red-500/50 transition-all shadow-[0_0_15px_rgba(239,68,68,0.05)] cursor-pointer"
+        >
+          <Video size={18} /> Tutorial & Execução Correta (Vídeo HD)
+        </button>
 
         <Card className="bg-[#1A1A1A] border-none shadow-none p-0 overflow-hidden mt-6 rounded-2xl">
           <div className="grid grid-cols-4 gap-2 bg-[#0D0D0D] p-4 text-[10px] uppercase font-black tracking-widest text-[#8A8A7A] text-center border-b border-[#333333]/50">
@@ -505,6 +509,17 @@ export const ActiveWorkout: React.FC = () => {
         </Card>
       </div>
 
+      <ExerciseVideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        exercise={currentMeta ? {
+          nome: currentMeta.nome,
+          grupoMuscular: currentMeta.grupoMuscular,
+          videoUrl: currentMeta.videoUrl,
+          equipamento: currentMeta.equipamento,
+          dificuldade: currentMeta.dificuldade
+        } : null}
+      />
     </div>
   );
 };

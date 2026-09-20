@@ -136,40 +136,70 @@ export const WorkoutBuilder: React.FC = () => {
     setWorkoutDays(newDays);
   };
 
-  const handleSavePlan = async () => {
-    if (!selectedClient) return toast.error('Selecione um cliente.');
-    if (!planName) return toast.error('Dê um nome ao plano.');
+  const saveOrOverwritePlan = async (options?: {
+    targetClientId?: string;
+    planName?: string;
+    planDesc?: string;
+    activeDays?: string[];
+    workoutDays?: Record<string, ExerciseDetails[]>;
+  }) => {
+    const targetClient = options?.targetClientId || selectedClient;
+    const nameToSave = options?.planName !== undefined ? options.planName : planName;
+    const descToSave = options?.planDesc !== undefined ? options.planDesc : planDesc;
+    const daysToSave = options?.activeDays !== undefined ? options.activeDays : activeDays;
+    const workoutMapToSave = options?.workoutDays !== undefined ? options.workoutDays : workoutDays;
+
+    if (!targetClient) {
+      toast.error('Selecione um cliente.');
+      return;
+    }
+    if (!nameToSave) {
+      toast.error('Dê um nome ao plano de treino.');
+      return;
+    }
 
     try {
-      // 1. Create or Update Plan
+      // Verificar se o cliente já possui um plano ativo (para sobrescrever)
+      let planIdToUse = (targetClient === selectedClient) ? editingPlanId : null;
+      if (!planIdToUse) {
+        const qPlan = query(
+          collection(db, 'workoutPlans'),
+          where('clientId', '==', targetClient),
+          where('ativo', '==', true)
+        );
+        const pSnap = await getDocs(qPlan);
+        if (!pSnap.empty) {
+          planIdToUse = pSnap.docs[0].id;
+        }
+      }
+
       const payload = {
-        clientId: selectedClient,
+        clientId: targetClient,
         trainerId: userData?.uid,
-        nomePlano: planName,
-        descricao: planDesc,
+        nomePlano: nameToSave,
+        descricao: descToSave,
         dataCriacao: new Date(),
         dataInicio: new Date(),
         dataFim: null,
         ativo: true,
-        diasDaSemana: activeDays
+        diasDaSemana: daysToSave
       };
-      
-      let pId = editingPlanId;
-      if (editingPlanId) {
-        await updateDoc(doc(db, 'workoutPlans', editingPlanId), payload);
-        const dq = query(collection(db, 'workoutDays'), where('planId', '==', editingPlanId));
+
+      let finalPlanId = planIdToUse;
+      if (planIdToUse) {
+        await updateDoc(doc(db, 'workoutPlans', planIdToUse), payload);
+        const dq = query(collection(db, 'workoutDays'), where('planId', '==', planIdToUse));
         const ds = await getDocs(dq);
-        for(const d of ds.docs) await deleteDoc(d.ref);
+        for (const d of ds.docs) await deleteDoc(d.ref);
       } else {
         const ref = await addDoc(collection(db, 'workoutPlans'), payload);
-        pId = ref.id;
+        finalPlanId = ref.id;
       }
 
       // Create Days
-      for (const day of activeDays) {
-        if (workoutDays[day]?.length > 0) {
-          // Extrair grupos musculares únicos dos exercícios desse dia para o nome do treino
-          const groups = Array.from(new Set(workoutDays[day].map(ex => {
+      for (const day of daysToSave) {
+        if (workoutMapToSave[day]?.length > 0) {
+          const groups = Array.from(new Set(workoutMapToSave[day].map(ex => {
             const meta = exercises.find(e => e.exerciseId === ex.exerciseId);
             return meta?.grupoMuscular;
           }).filter(Boolean)));
@@ -177,22 +207,40 @@ export const WorkoutBuilder: React.FC = () => {
           const nomeTreino = groups.length > 0 ? groups.slice(0, 3).join(' + ') : `Foco em ${day}`;
 
           await addDoc(collection(db, 'workoutDays'), {
-            planId: pId,
+            planId: finalPlanId,
             diaSemana: day,
             nomeTreino: nomeTreino,
             ordem: DIAS_SEMANA.indexOf(day),
-            exercicios: workoutDays[day]
+            exercicios: workoutMapToSave[day]
           });
         }
       }
 
-      toast.success(editingPlanId ? 'Plano atualizado com sucesso!' : 'Plano salvo com sucesso!');
-      setPlanName('');
-      setWorkoutDays({ 'Treino A': [] });
-      setActiveDays(['Treino A']);
+      // Atualizar o estado do editor mantendo os dados na tela
+      if (targetClient === selectedClient || !selectedClient) {
+        setSelectedClient(targetClient);
+        setEditingPlanId(finalPlanId);
+        setPlanName(nameToSave);
+        setPlanDesc(descToSave);
+        setActiveDays(daysToSave);
+        setWorkoutDays(workoutMapToSave);
+      }
+
+      toast.success(planIdToUse ? 'Ficha do aluno sobrescrita e salva com sucesso!' : 'Novo plano salvo com sucesso!');
     } catch (error) {
+      console.error('Erro ao salvar plano:', error);
       toast.error('Erro ao salvar plano.');
+      throw error;
     }
+  };
+
+  const handleResetToBlank = () => {
+    setEditingPlanId(null);
+    setPlanName('');
+    setPlanDesc('');
+    setActiveDays(['Treino A']);
+    setWorkoutDays({ 'Treino A': [] });
+    toast.success('Editor pronto para criação de novo plano em branco.');
   };
 
   const handleCopyPlan = async (sourceClientId: string) => {
@@ -244,9 +292,58 @@ export const WorkoutBuilder: React.FC = () => {
             <Sparkles className="mr-2 text-[#D4A947]" size={18} />
             Copiloto IA
           </Button>
-          <Button onClick={handleSavePlan}><Save className="mr-2" size={18} /> Salvar Plano</Button>
+          <Button 
+            onClick={() => saveOrOverwritePlan()} 
+            className="bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold"
+          >
+            <Save className="mr-2" size={18} /> 
+            {editingPlanId ? 'Atualizar e Sobrescrever Ficha' : 'Salvar Novo Plano'}
+          </Button>
         </div>
       </div>
+
+      {/* Alerta de Ficha Ativa Carregada */}
+      {selectedClient && editingPlanId && (
+        <div className="bg-[#D4A947]/10 border border-[#D4A947]/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-[#D4A947]/20 text-[#D4A947]">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#D4A947] text-[#0D0D0D]">
+                  Ficha Ativa Carregada
+                </span>
+                <span className="text-sm font-bold text-[#F0EDE6]">{planName || 'Sem título'}</span>
+              </div>
+              <p className="text-xs text-[#8A8A7A] mt-0.5">
+                Ao consultar a IA ou editar os exercícios, as alterações sobrescreverão a ficha do aluno ao salvar.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button 
+              type="button" 
+              variant="secondary" 
+              size="sm"
+              onClick={() => setIsAICopilotOpen(true)}
+              className="border border-[#D4A947] text-[#D4A947] text-xs hover:bg-[#D4A947]/10 font-semibold"
+            >
+              <Sparkles size={14} className="mr-1.5" />
+              Sobrescrever via IA
+            </Button>
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="sm"
+              onClick={handleResetToBlank}
+              className="text-xs text-[#8A8A7A] hover:text-[#F0EDE6]"
+            >
+              Criar Novo em Branco
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lado Esquerdo: Configurações e Biblioteca */}
@@ -421,11 +518,23 @@ export const WorkoutBuilder: React.FC = () => {
         onClose={() => setIsAICopilotOpen(false)}
         clients={clients}
         selectedClientId={selectedClient}
-        onApplyWorkout={({ planName, planDesc, activeDays, workoutDays }) => {
+        onApplyWorkout={({ planName, planDesc, activeDays, workoutDays, targetClientId }) => {
+          if (targetClientId && targetClientId !== selectedClient) {
+            setSelectedClient(targetClientId);
+          }
           setPlanName(planName);
           setPlanDesc(planDesc);
           setActiveDays(activeDays);
           setWorkoutDays(workoutDays);
+        }}
+        onDirectOverwrite={async ({ planName, planDesc, activeDays, workoutDays, targetClientId }) => {
+          await saveOrOverwritePlan({
+            targetClientId,
+            planName,
+            planDesc,
+            activeDays,
+            workoutDays
+          });
         }}
       />
     </div>

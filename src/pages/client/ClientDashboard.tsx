@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { PlayCircle, Award, Calendar as CalendarIcon, Target, ChevronRight, Droplet, Utensils, Moon, Flame, Gem, Sparkles } from 'lucide-react';
+import { PlayCircle, Award, Calendar as CalendarIcon, Target, ChevronRight, Droplet, Utensils, Moon, Flame, Gem, Sparkles, ShieldCheck, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { WorkoutPlan, WorkoutDay, WorkoutLog } from '../../types';
 
@@ -158,6 +157,19 @@ export const ClientDashboard: React.FC = () => {
     }
   };
 
+  const hasTrainer = Boolean(
+    userData?.trainerId ||
+    (activePlan && (activePlan as any).criadoPor !== 'student_ai' && activePlan.trainerId)
+  );
+
+  const planStartDate = activePlan?.dataInicio 
+    ? (activePlan.dataInicio.toDate ? activePlan.dataInicio.toDate() : new Date(activePlan.dataInicio)) 
+    : (activePlan?.dataCriacao ? (activePlan.dataCriacao.toDate ? activePlan.dataCriacao.toDate() : new Date(activePlan.dataCriacao)) : new Date());
+  
+  const daysActive = activePlan ? Math.max(0, Math.floor((Date.now() - planStartDate.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+  const daysLeft = Math.max(0, 90 - daysActive);
+  const currentWeek = Math.min(12, Math.floor(daysActive / 7) + 1);
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-4 mb-8">
@@ -170,29 +182,94 @@ export const ClientDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Banner de Prescrição com IA em Tempo Real */}
-      <div 
-        onClick={() => navigate('/client/ai-workout')}
-        className="bg-gradient-to-r from-[#D4A947]/20 via-[#1A1A1A] to-[#1A1A1A] border border-[#D4A947]/40 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:border-[#D4A947] hover:shadow-[0_0_20px_rgba(212,169,71,0.15)] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-[#D4A947] flex items-center justify-center text-[#0D0D0D] font-black shrink-0 shadow-[0_0_15px_rgba(212,169,71,0.4)] group-hover:scale-105 transition-transform">
-            <Sparkles size={24} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-base text-[#F0EDE6]">Montar Novo Treino com IA</h3>
-              <span className="text-[10px] bg-[#D4A947]/20 text-[#D4A947] px-2 py-0.5 rounded-full font-extrabold uppercase">Novo</span>
+      {/* Informações da Ficha e Acesso Controlado à Periodização */}
+      {hasTrainer ? (
+        <div className="bg-[#1A1A1A] border border-[#333333] p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#D4A947]/10 text-[#D4A947] flex items-center justify-center font-bold shrink-0 border border-[#D4A947]/20">
+              <ShieldCheck size={22} />
             </div>
-            <p className="text-xs text-[#8A8A7A] mt-0.5">Envie sua foto e a IA prescreve seu treino (A, B, C, D) sob medida.</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#D4A947] uppercase tracking-wider">Acompanhamento Personal Trainer</span>
+                <span className="text-[10px] bg-[#D4A947]/20 text-[#D4A947] px-2 py-0.5 rounded-full font-extrabold uppercase">Ativo</span>
+              </div>
+              <p className="text-xs text-[#8A8A7A] mt-0.5">
+                Ficha prescrita e supervisionada por <strong>Personal Lázaro Timóteo</strong>. Foco em continuidade e sobrecarga progressiva.
+              </p>
+            </div>
           </div>
         </div>
+      ) : !activePlan ? (
+        <div 
+          onClick={() => navigate('/client/ai-workout')}
+          className="bg-gradient-to-r from-[#D4A947]/20 via-[#1A1A1A] to-[#1A1A1A] border border-[#D4A947]/40 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:border-[#D4A947] hover:shadow-[0_0_20px_rgba(212,169,71,0.15)] transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-[#D4A947] flex items-center justify-center text-[#0D0D0D] font-black shrink-0 shadow-[0_0_15px_rgba(212,169,71,0.4)] group-hover:scale-105 transition-transform">
+              <Sparkles size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-[#F0EDE6]">Monte seu Primeiro Treino com IA</h3>
+                <span className="text-[10px] bg-[#D4A947]/20 text-[#D4A947] px-2 py-0.5 rounded-full font-extrabold uppercase">Início</span>
+              </div>
+              <p className="text-xs text-[#8A8A7A] mt-0.5">Responda a anamnese biomecânica e a IA prescreve seu treino sob medida.</p>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-1 text-xs font-bold text-[#D4A947] group-hover:translate-x-1 transition-transform self-end sm:self-center">
-          <span>Criar Treino</span>
-          <ChevronRight size={16} />
+          <div className="flex items-center gap-1 text-xs font-bold text-[#D4A947] group-hover:translate-x-1 transition-transform self-end sm:self-center">
+            <span>Começar</span>
+            <ChevronRight size={16} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-[#1A1A1A] border border-[#333333] p-4 sm:p-5 rounded-2xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="text-[#D4A947]" size={18} />
+              <h3 className="font-bold text-sm text-[#F0EDE6]">Ciclo de Periodização • Semana {currentWeek} de 12</h3>
+            </div>
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full w-fit ${daysLeft === 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#D4A947]/10 text-[#D4A947] border border-[#D4A947]/30'}`}>
+              {daysLeft === 0 ? 'Ciclo Concluído (3 Meses)' : `${daysLeft} dias restantes`}
+            </span>
+          </div>
+
+          <div className="w-full bg-[#0D0D0D] rounded-full h-2 overflow-hidden border border-[#333333]">
+            <div 
+              className="bg-gradient-to-r from-[#D4A947] to-[#B8922E] h-full transition-all duration-500"
+              style={{ width: `${Math.min(100, Math.max(5, Math.round((daysActive / 90) * 100)))}%` }}
+            />
+          </div>
+
+          <p className="text-xs text-[#8A8A7A] leading-relaxed">
+            A literatura científica comprova que a <strong>sobrecarga progressiva contínua por no mínimo 3 meses (12 semanas)</strong> é indispensável para adaptação neural e hipertrofia consistente. Mudar de treino a cada semana zera a adaptação mecânica.
+          </p>
+
+          <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-[#8A8A7A]">
+            <span>{daysLeft === 0 ? 'Você já pode renovar sua periodização!' : `Janela recomendada para nova ficha em ${daysLeft} dias.`}</span>
+            {daysLeft === 0 ? (
+              <Button 
+                type="button" 
+                size="sm"
+                onClick={() => navigate('/client/ai-workout')}
+                className="bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold text-xs"
+              >
+                <Sparkles size={14} className="mr-1.5" />
+                Renovar Periodização IA
+              </Button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate('/client/ai-workout')}
+                className="text-[#8A8A7A] hover:text-[#D4A947] underline cursor-pointer text-left sm:text-right"
+              >
+                Avançado: Solicitar novo treino antecipadamente
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card Principal: Treino do Dia e Outros Dias */}

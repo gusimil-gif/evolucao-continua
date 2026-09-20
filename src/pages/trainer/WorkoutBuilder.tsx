@@ -182,7 +182,8 @@ export const WorkoutBuilder: React.FC = () => {
         dataInicio: new Date(),
         dataFim: null,
         ativo: true,
-        diasDaSemana: daysToSave
+        diasDaSemana: daysToSave,
+        criadoPor: 'trainer'
       };
 
       let finalPlanId = planIdToUse;

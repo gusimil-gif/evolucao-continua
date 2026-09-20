@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
@@ -15,7 +15,10 @@ import {
   Dumbbell, 
   RefreshCw, 
   BookOpen, 
-  FileText 
+  FileText,
+  Clock,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -25,6 +28,38 @@ export const AIWorkoutGenerator: React.FC = () => {
 
   const [step, setStep] = useState<'form' | 'loading' | 'result'>('form');
   const [mode, setMode] = useState<'questionnaire' | 'photo'>('questionnaire');
+
+  // Verificação de Treinador e Tempo de Ficha Ativa (Mínimo 3 Meses)
+  const [activePlan, setActivePlan] = useState<any | null>(null);
+  const [checkingPlan, setCheckingPlan] = useState(true);
+  const [hasConfirmedEarlyChange, setHasConfirmedEarlyChange] = useState(false);
+  const [earlyAcknowledgeChecked, setEarlyAcknowledgeChecked] = useState(false);
+
+  useEffect(() => {
+    const fetchCurrentPlan = async () => {
+      if (!userData?.uid) {
+        setCheckingPlan(false);
+        return;
+      }
+      try {
+        const qPlan = query(
+          collection(db, 'workoutPlans'),
+          where('clientId', '==', userData.uid),
+          where('ativo', '==', true)
+        );
+        const snap = await getDocs(qPlan);
+        if (!snap.empty) {
+          const docData = snap.docs[0].data();
+          setActivePlan({ id: snap.docs[0].id, ...docData });
+        }
+      } catch (e) {
+        console.error('Erro ao verificar plano ativo:', e);
+      } finally {
+        setCheckingPlan(false);
+      }
+    };
+    fetchCurrentPlan();
+  }, [userData]);
 
   // Parâmetros da Anamnese Científica
   const [objetivo, setObjetivo] = useState<'hipertrofia' | 'emagrecimento' | 'forca' | 'condicionamento' | 'definicao'>('hipertrofia');
@@ -107,8 +142,25 @@ export const AIWorkoutGenerator: React.FC = () => {
     }
   };
 
+  const hasTrainer = Boolean(
+    userData?.trainerId ||
+    (activePlan && activePlan.criadoPor !== 'student_ai' && activePlan.trainerId)
+  );
+
+  const planStartDate = activePlan?.dataInicio 
+    ? (activePlan.dataInicio.toDate ? activePlan.dataInicio.toDate() : new Date(activePlan.dataInicio)) 
+    : (activePlan?.dataCriacao ? (activePlan.dataCriacao.toDate ? activePlan.dataCriacao.toDate() : new Date(activePlan.dataCriacao)) : new Date());
+  
+  const daysActive = activePlan ? Math.max(0, Math.floor((Date.now() - planStartDate.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+  const daysRemaining = Math.max(0, 90 - daysActive);
+  const isEarlyChange = Boolean(activePlan && daysActive < 90);
+
   const handleApplyPlan = async () => {
     if (!userData?.uid || !generatedPlan) return;
+    if (hasTrainer) {
+      toast.error('Seu plano é supervisionado pelo seu treinador e não pode ser sobrescrito.');
+      return;
+    }
     setIsSaving(true);
     try {
       // 1. Desativar qualquer plano ativo existente do aluno
@@ -130,14 +182,15 @@ export const AIWorkoutGenerator: React.FC = () => {
       // 3. Criar o novo WorkoutPlan
       const newPlanRef = await addDoc(collection(db, 'workoutPlans'), {
         clientId: userData.uid,
-        trainerId: userData.trainerId || 'piVnSDRpv8SOpmdSzmDbpWCSwFc2',
+        trainerId: userData.trainerId || null,
         nomePlano: generatedPlan.nomePlano,
         descricao: generatedPlan.descricao,
         diasDaSemana: diasSemana,
         dataCriacao: new Date(),
         dataInicio: new Date(),
         dataFim: null,
-        ativo: true
+        ativo: true,
+        criadoPor: 'student_ai'
       });
 
       // 4. Salvar cada WorkoutDay com seus respectivos exercícios
@@ -182,6 +235,134 @@ export const AIWorkoutGenerator: React.FC = () => {
     }
   };
 
+  // 1. Carregamento inicial do status da ficha
+  if (checkingPlan) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#D4A947]"></div>
+      </div>
+    );
+  }
+
+  // 2. Trava de Segurança: Aluno com Personal Trainer não pode sobrescrever a ficha
+  if (hasTrainer) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto py-12 animate-in fade-in">
+        <Card className="border-[#D4A947]/30 bg-[#1A1A1A] p-6 sm:p-8 text-center space-y-6 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-[#D4A947]/10 text-[#D4A947] border border-[#D4A947]/30 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(212,169,71,0.2)]">
+            <Lock size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-[#D4A947]/20 text-[#D4A947] border border-[#D4A947]/30">
+              Prescrição Exclusiva do Personal Trainer
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-[#F0EDE6] pt-2">
+              Ficha Sob Supervisão do seu Treinador
+            </h2>
+            <p className="text-sm text-[#8A8A7A] leading-relaxed max-w-md mx-auto">
+              Seu treinamento é planejado, periodizado e acompanhado clinicamente pelo seu professor (<strong>Personal Lázaro Timóteo</strong>).
+            </p>
+          </div>
+
+          <div className="bg-[#0D0D0D] border border-[#333333] p-4 rounded-xl text-left text-xs text-[#8A8A7A] space-y-2">
+            <p className="font-semibold text-[#F0EDE6] flex items-center gap-1.5">
+              <ShieldCheck size={16} className="text-[#D4A947]" /> Por que esta opção está bloqueada para você?
+            </p>
+            <p className="leading-relaxed">
+              A metodologia do seu treinador utiliza controle rigoroso de sobrecarga progressiva, volume de séries e descanso articular. Sobrescrever a ficha por conta própria anularia a periodização montada para você.
+            </p>
+            <p className="text-[#D4A947] font-medium pt-1">
+              Caso deseje uma troca de estímulo ou novos exercícios, solicite diretamente ao seu professor na sua próxima aula ou via chat.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <Button 
+              onClick={() => navigate('/client')} 
+              className="w-full bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold py-3.5"
+            >
+              Voltar ao Meu Treino Atual
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // 3. Barreira Educacional de Fricção: Aluno autônomo com menos de 3 meses (90 dias) de treino ativo
+  if (isEarlyChange && !hasConfirmedEarlyChange) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto py-8 animate-in fade-in">
+        <Card className="border-[#D4A947]/30 bg-[#1A1A1A] p-6 sm:p-8 space-y-6 shadow-2xl">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Clock size={24} />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Princípio da Continuidade • Mínimo 3 Meses
+              </span>
+              <h2 className="text-xl font-bold text-[#F0EDE6] mt-1.5">
+                Você ainda está no ciclo de adaptação ({daysActive} de 90 dias)
+              </h2>
+            </div>
+          </div>
+
+          <div className="bg-[#0D0D0D] border border-[#333333] p-4 rounded-xl space-y-3 text-xs leading-relaxed">
+            <p className="font-semibold text-amber-300">
+              ⚠️ Não adianta mudar de treino toda semana!
+            </p>
+            <p className="text-[#8A8A7A]">
+              A literatura científica em fisiologia do exercício comprova que o ganho real de massa muscular e queima de gordura depende da <strong>Sobrecarga Progressiva</strong> — aumentar cargas e repetições nos <em>mesmos padrões motores</em> ao longo de <strong>pelo menos 12 semanas (3 meses)</strong>.
+            </p>
+            <p className="text-[#8A8A7A]">
+              Trocar de treino toda semana apenas gera dor muscular por novidade motora, mas <strong>zera a adaptação hipertrófica real</strong> e impede que você acompanhe sua evolução de força.
+            </p>
+            <div className="bg-[#1A1A1A] p-3 rounded-lg border border-[#333333] flex items-center justify-between text-xs">
+              <span className="text-[#8A8A7A]">Plano atual: <strong className="text-[#F0EDE6]">{activePlan.nomePlano}</strong></span>
+              <span className="text-[#D4A947] font-bold">Faltam {daysRemaining} dias</span>
+            </div>
+          </div>
+
+          {/* Confirmação deliberada */}
+          <div className="bg-[#141414] border border-[#333333] p-4 rounded-xl space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={earlyAcknowledgeChecked}
+                onChange={e => setEarlyAcknowledgeChecked(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-[#444] text-[#D4A947] focus:ring-[#D4A947] bg-[#252525]"
+              />
+              <span className="text-xs text-[#F0EDE6] leading-relaxed">
+                Estou ciente do <strong>princípio da sobrecarga progressiva</strong> e que a recomendação é de <strong>no mínimo 3 meses de constância</strong>, mas desejo prosseguir com a geração de um novo treino antes do prazo recomendado.
+              </span>
+            </label>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <Button 
+              type="button" 
+              variant="ghost" 
+              onClick={() => navigate('/client')}
+              className="w-full sm:w-auto text-xs text-[#8A8A7A]"
+            >
+              Voltar ao Meu Treino Atual
+            </Button>
+            <Button 
+              type="button"
+              disabled={!earlyAcknowledgeChecked}
+              onClick={() => setHasConfirmedEarlyChange(true)}
+              className="w-full sm:w-auto bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-bold text-xs px-6 disabled:opacity-30"
+            >
+              Continuar para Gerador IA
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 animate-in fade-in">
       {/* CABEÇALHO */}
@@ -196,6 +377,16 @@ export const AIWorkoutGenerator: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* AVISO DE RENOVAÇÃO ANTECIPADA (SE HOUVE CONFIRMAÇÃO) */}
+      {isEarlyChange && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-300">
+          <Clock size={20} className="shrink-0 text-amber-400" />
+          <span>
+            <strong>Ciclo de Renovação Antecipada:</strong> Você optou por gerar uma nova ficha antes dos 3 meses recomendados. Para consolidar os resultados mecânicos, comprometa-se a manter este novo plano por no mínimo 12 semanas!
+          </span>
+        </div>
+      )}
 
       {/* AVISO MÉDICO / RESPONSABILIDADE */}
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3 text-amber-300 text-xs leading-relaxed">

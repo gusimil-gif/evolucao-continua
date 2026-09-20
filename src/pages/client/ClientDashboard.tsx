@@ -171,7 +171,7 @@ export const ClientDashboard: React.FC = () => {
   const currentWeek = Math.min(12, Math.floor(daysActive / 7) + 1);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-16">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-16 h-16 rounded-full bg-[#D4A947]/20 flex items-center justify-center text-2xl font-black text-[#D4A947]">
           {userData?.nome.charAt(0).toUpperCase()}

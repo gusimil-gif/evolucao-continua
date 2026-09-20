@@ -117,9 +117,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* ============================================================ */}
       {/* 3. Área Principal do Conteúdo                                  */}
       {/* ============================================================ */}
-      {/* No mobile, adicionamos pb-20 (padding bottom) para o conteúdo não sumir atrás da Bottom Nav */}
-      <main className="flex-1 overflow-y-auto bg-[#0D0D0D] animate-in fade-in zoom-in-95 duration-300 relative z-10 w-full">
-        <div className="h-full w-full pb-20 md:pb-0">
+      {/* No mobile, usamos pb-36 para que o conteúdo final fique 100% visível acima da Bottom Nav */}
+      <main className="flex-1 overflow-y-auto bg-[#0D0D0D] animate-in fade-in zoom-in-95 duration-300 relative z-10 w-full overscroll-y-contain">
+        <div className="min-h-full w-full pb-36 md:pb-8">
           {children}
         </div>
       </main>

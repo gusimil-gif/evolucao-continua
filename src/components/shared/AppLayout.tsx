@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, Dumbbell, LogOut, FileText, MessageCircle } from 'lucide-react';
+import { Users, LayoutDashboard, Dumbbell, LogOut, FileText, MessageCircle, Sparkles } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,6 +31,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const clientLinks = [
     { to: '/client', label: 'Meu Treino', icon: LayoutDashboard },
+    { to: '/client/coach', label: 'Coach IA', icon: Sparkles },
     { to: '/client/progress', label: 'Evolução', icon: Dumbbell },
     { to: '/client/community', label: 'Comunidade', icon: MessageCircle },
   ];

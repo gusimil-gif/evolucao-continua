@@ -4,7 +4,7 @@ import { doc, getDoc, collection, getDocs, query, limit } from 'firebase/firesto
 import { db } from '../../services/firebaseConfig';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Award, Timer, Flame, CheckCircle2 } from 'lucide-react';
+import { Award, Timer, Flame, CheckCircle2, Sparkles } from 'lucide-react';
 import type { WorkoutLog, MotivationalQuote } from '../../types';
 
 export const CompletionScreen: React.FC = () => {
@@ -66,10 +66,16 @@ export const CompletionScreen: React.FC = () => {
       </div>
 
       <div className="flex flex-col w-full max-w-sm gap-3">
-        <Button onClick={() => navigate('/client/progress')} className="h-14 text-lg">
-          <Award className="mr-2" /> Ver Evolução
+        <Button 
+          onClick={() => navigate('/client/coach')} 
+          className="h-14 text-lg bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-extrabold shadow-[0_4px_20px_rgba(212,169,71,0.3)] hover:scale-[1.02] transition-transform"
+        >
+          <Sparkles className="mr-2" size={22} /> Contar ao Coach IA
         </Button>
-        <Button variant="ghost" onClick={() => navigate('/client')} className="h-14 text-lg">
+        <Button onClick={() => navigate('/client/progress')} variant="secondary" className="h-12 text-base border-[#333333] hover:border-[#D4A947]">
+          <Award className="mr-2" size={18} /> Ver Evolução de Cargas
+        </Button>
+        <Button variant="ghost" onClick={() => navigate('/client')} className="h-12 text-base">
           Voltar ao Início
         </Button>
       </div>

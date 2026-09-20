@@ -310,6 +310,28 @@ export const ClientDashboard: React.FC = () => {
              )}
            </Card>
 
+            {/* Banner / Atalho Coach IA Pós-Treino */}
+            <div 
+              onClick={() => navigate('/client/coach')}
+              className="bg-gradient-to-r from-[#1A1A1A] via-[#252525] to-[#1A1A1A] border border-[#D4A947]/40 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:border-[#D4A947] hover:shadow-[0_0_20px_rgba(212,169,71,0.2)] transition-all group"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#D4A947]/20 border border-[#D4A947]/40 flex items-center justify-center text-[#D4A947] shrink-0 group-hover:scale-105 transition-transform shadow-[0_0_10px_rgba(212,169,71,0.3)]">
+                  <Sparkles size={22} className="animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm sm:text-base text-[#F0EDE6]">Check-in com Coach IA</h4>
+                    <span className="text-[10px] bg-[#D4A947]/20 text-[#D4A947] px-2 py-0.5 rounded-full font-extrabold uppercase">Novo</span>
+                  </div>
+                  <p className="text-xs text-[#8A8A7A] mt-0.5">
+                    Fale como foi o treino: a IA sincroniza suas novas cargas no gráfico e monitora dores articulares.
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="text-[#8A8A7A] group-hover:text-[#D4A947] group-hover:translate-x-1 transition-all shrink-0 ml-2" size={20} />
+            </div>
+
            {/* Listagem de Outros Treinos da Sequência */}
            {allWorkouts.length > 0 && (
              <div className="space-y-3 animate-in fade-in duration-700">

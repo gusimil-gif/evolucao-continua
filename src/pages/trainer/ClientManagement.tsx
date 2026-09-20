@@ -7,7 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Search, Plus, UserCircle, Activity } from 'lucide-react';
+import { Search, Plus, UserCircle, Activity, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import type { UserData } from '../../types';
@@ -229,25 +229,44 @@ export const ClientManagement: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(c => (
-              <div key={c.uid} className={`bg-[#252525] p-5 rounded-xl border border-[#333333] flex items-center gap-4 hover:border-[#D4A947]/50 transition-all cursor-pointer group ${c.ativo === false ? 'opacity-60 border-dashed' : ''}`} onClick={() => openEditClientModal(c)}>
-                <UserCircle size={48} className={c.ativo === false ? 'text-red-500/50' : 'text-[#8A8A7A]'} />
-                <div className="flex-1 overflow-hidden">
-                  <h3 className="font-semibold text-[#F0EDE6] truncate">{c.nome}</h3>
-                  <p className="text-sm text-[#8A8A7A] truncate">{c.email}</p>
-                  <div className="flex items-center gap-2 mt-2 text-xs font-medium">
-                    {c.ativo === false ? (
-                      <span className="px-2 py-0.5 bg-red-500/10 text-red-500 rounded border border-red-500/20">Pausado</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[#D4A947]">
-                        <Activity size={12} /> {c.dataNascimento ? 'Verificado' : 'Em andamento'}
-                      </span>
-                    )}
+            {filtered.map(c => {
+              const cleanPhone = c.telefone ? c.telefone.replace(/\D/g, '') : '';
+              const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(`Olá ${c.nome}! Como estão seus treinos no Evolução Contínua?`)}` : null;
+
+              return (
+                <div key={c.uid} className={`bg-[#252525] p-5 rounded-xl border border-[#333333] flex items-center gap-4 hover:border-[#D4A947]/50 transition-all cursor-pointer group relative ${c.ativo === false ? 'opacity-60 border-dashed' : ''}`} onClick={() => openEditClientModal(c)}>
+                  <UserCircle size={48} className={c.ativo === false ? 'text-red-500/50' : 'text-[#8A8A7A]'} />
+                  <div className="flex-1 overflow-hidden">
+                    <h3 className="font-semibold text-[#F0EDE6] truncate">{c.nome}</h3>
+                    <p className="text-sm text-[#8A8A7A] truncate">{c.email}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs font-medium">
+                      {c.ativo === false ? (
+                        <span className="px-2 py-0.5 bg-red-500/10 text-red-500 rounded border border-red-500/20">Pausado</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[#D4A947]">
+                          <Activity size={12} /> {c.dataNascimento ? 'Verificado' : 'Em andamento'}
+                        </span>
+                      )}
+
+                      {waUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(waUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30 transition-colors"
+                          title="Conversar no WhatsApp"
+                        >
+                          <MessageSquare size={11} /> WhatsApp
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <div className="opacity-0 group-hover:opacity-100 text-xs text-[#8A8A7A] border border-[#333333] px-2 py-1 rounded transition-opacity">Editar</div>
                 </div>
-                <div className="opacity-0 group-hover:opacity-100 text-xs text-[#8A8A7A] border border-[#333333] px-2 py-1 rounded transition-opacity">Editar</div>
-              </div>
-            ))}
+              );
+            })}
             {filtered.length === 0 && (
               <div className="col-span-full py-12 text-center text-[#8A8A7A]">Nenhum aluno encontrado.</div>
             )}

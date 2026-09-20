@@ -15,6 +15,7 @@ const CompletionScreen = lazy(() => import('./pages/client/CompletionScreen'));
 const ProgressCharts = lazy(() => import('./pages/client/ProgressCharts'));
 const CommunityFeed = lazy(() => import('./pages/client/CommunityFeed'));
 const AIWorkoutGenerator = lazy(() => import('./pages/client/AIWorkoutGenerator'));
+const AICoachDebrief = lazy(() => import('./pages/client/AICoachDebrief'));
 const ClientManagement = lazy(() => import('./pages/trainer/ClientManagement'));
 const ExerciseLibrary = lazy(() => import('./pages/trainer/ExerciseLibrary'));
 const WorkoutBuilder = lazy(() => import('./pages/trainer/WorkoutBuilder'));
@@ -80,6 +81,7 @@ function App() {
                     <Route path="/workout/:planId/:dayId" element={<ActiveWorkout />} />
                     <Route path="/completion/:logId" element={<CompletionScreen />} />
                     <Route path="/progress" element={<ProgressCharts />} />
+                    <Route path="/coach" element={<AICoachDebrief />} />
                     <Route path="/community" element={<CommunityFeed />} />
                     <Route path="/ai-workout" element={<AIWorkoutGenerator />} />
                   </Routes>

@@ -98,6 +98,43 @@ export interface MotivationalQuote {
   ordem: number;
 }
 
+export interface ExtractedExerciseLoad {
+  exerciseId: string;
+  nomeExercicio: string;
+  carga: number; // kg
+  cargaAnterior?: number; // kg
+  delta?: number; // ex: +4
+  repeticoes?: number;
+  observacao?: string;
+}
+
+export interface PainAlert {
+  articulacao: 'ombro' | 'lombar' | 'joelho' | 'cotovelo' | 'punho' | 'quadril' | 'cervical' | 'outro';
+  gravidade: 'leve' | 'moderada' | 'severa';
+  exercicioGatilho?: string;
+  descricao: string;
+  orientacaoBiomecanica: string;
+}
+
+export interface CoachDebrief {
+  id?: string;
+  clientId: string;
+  clientName: string;
+  trainerId?: string;
+  dayId?: string;
+  nomeTreino?: string;
+  data: any; // Timestamp or Date
+  transcricao: string;
+  cargasExtraidas: ExtractedExerciseLoad[];
+  alertasDor: PainAlert[];
+  rpe?: number; // 1-10
+  prontidaoScore?: number; // 0-100
+  feedbackCoachIA: string;
+  perguntasEstrategicas: string[];
+  status: 'novo' | 'ciente' | 'respondido';
+  syncWorkoutLogId?: string;
+}
+
 export interface CommunityPost {
   id?: string;
   authorId: string;

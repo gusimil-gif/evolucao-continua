@@ -20,41 +20,38 @@ service cloud.firestore {
 
     // Colecao: users
     match /users/{userId} {
-      // Leitura: O proprio usuario pode ler seu perfil ou o Treinador pode ver seus alunos
       allow read: if isOwner(userId) || isTrainer();
       
-      // Criacao: Qualquer novo usuario autenticado pode criar seu proprio documento inicial, ou treinador pode criar
       allow create: if isAuthenticated() && (
         isOwner(userId) || isTrainer()
       );
       
-      // Atualizacao: O dono pode atualizar dados basicos mas NUNCA pode alterar o userType para 'trainer' (previne Privilege Escalation)
       allow update: if isTrainer() || (
         isOwner(userId) && 
         request.resource.data.userType == resource.data.userType &&
         request.resource.data.trainerId == resource.data.trainerId
       );
       
-      // Exclusao: Apenas o treinador tem permissao administrativa para deletar usuarios
       allow delete: if isTrainer();
     }
 
     // Colecao: workoutPlans (Planos de Treino)
     match /workoutPlans/{planId} {
-      // Aluno so pode ler o plano se pertencer a ele (clientId == auth.uid)
       allow read: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
-      allow write: if isTrainer();
+      // Permite que o treinador escreva OU que o proprio aluno salve seu treino gerado por IA
+      allow create: if isTrainer() || (isAuthenticated() && request.resource.data.clientId == request.auth.uid);
+      allow update, delete: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
     }
 
     // Colecao: workoutDays (Dias e Exercicios)
     match /workoutDays/{dayId} {
       allow read: if isAuthenticated();
-      allow write: if isTrainer();
+      // Permite que treinador ou aluno autenticado configure dias de treino vinculados
+      allow write: if isAuthenticated();
     }
 
     // Colecao: workoutLogs (Historico de Treinos do Aluno)
     match /workoutLogs/{logId} {
-      // Aluno so pode ler ou registrar logs para o proprio ID (prevencao de IDOR)
       allow read: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
       allow create: if isAuthenticated() && request.resource.data.clientId == request.auth.uid;
       allow update, delete: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
@@ -83,7 +80,7 @@ service cloud.firestore {
     match /communityPosts/{postId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isAuthenticated(); // likes e comentarios
+      allow update: if isAuthenticated();
       allow delete: if isTrainer() || (isAuthenticated() && resource.data.authorId == request.auth.uid);
     }
 

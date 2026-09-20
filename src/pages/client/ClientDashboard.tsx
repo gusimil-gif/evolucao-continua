@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { PlayCircle, Award, Calendar as CalendarIcon, Target, ChevronRight, Droplet, Utensils, Moon, Flame, Gem } from 'lucide-react';
+import { PlayCircle, Award, Calendar as CalendarIcon, Target, ChevronRight, Droplet, Utensils, Moon, Flame, Gem, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { WorkoutPlan, WorkoutDay, WorkoutLog } from '../../types';
 
@@ -163,6 +163,30 @@ export const ClientDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#F0EDE6]">Olá, {userData?.nome}!</h1>
           <p className="text-[#8A8A7A]">Pronto para superar seus limites hoje?</p>
+        </div>
+      </div>
+
+      {/* Banner de Prescrição com IA em Tempo Real */}
+      <div 
+        onClick={() => navigate('/client/ai-workout')}
+        className="bg-gradient-to-r from-[#D4A947]/20 via-[#1A1A1A] to-[#1A1A1A] border border-[#D4A947]/40 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:border-[#D4A947] hover:shadow-[0_0_20px_rgba(212,169,71,0.15)] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-[#D4A947] flex items-center justify-center text-[#0D0D0D] font-black shrink-0 shadow-[0_0_15px_rgba(212,169,71,0.4)] group-hover:scale-105 transition-transform">
+            <Sparkles size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base text-[#F0EDE6]">Montar Novo Treino com IA</h3>
+              <span className="text-[10px] bg-[#D4A947]/20 text-[#D4A947] px-2 py-0.5 rounded-full font-extrabold uppercase">Novo</span>
+            </div>
+            <p className="text-xs text-[#8A8A7A] mt-0.5">Envie sua foto e a IA prescreve seu treino (A, B, C, D) sob medida.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 text-xs font-bold text-[#D4A947] group-hover:translate-x-1 transition-transform self-end sm:self-center">
+          <span>Criar Treino</span>
+          <ChevronRight size={16} />
         </div>
       </div>
 

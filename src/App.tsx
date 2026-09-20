@@ -12,6 +12,7 @@ import ActiveWorkout from './pages/client/ActiveWorkout';
 import CompletionScreen from './pages/client/CompletionScreen';
 import ProgressCharts from './pages/client/ProgressCharts';
 import CommunityFeed from './pages/client/CommunityFeed';
+import AIWorkoutGenerator from './pages/client/AIWorkoutGenerator';
 import ClientManagement from './pages/trainer/ClientManagement';
 import ExerciseLibrary from './pages/trainer/ExerciseLibrary';
 import WorkoutBuilder from './pages/trainer/WorkoutBuilder';
@@ -71,6 +72,7 @@ function App() {
                   <Route path="/completion/:logId" element={<CompletionScreen />} />
                   <Route path="/progress" element={<ProgressCharts />} />
                   <Route path="/community" element={<CommunityFeed />} />
+                  <Route path="/ai-workout" element={<AIWorkoutGenerator />} />
                 </Routes>
               </AppLayout>
             </ProtectedRoute>

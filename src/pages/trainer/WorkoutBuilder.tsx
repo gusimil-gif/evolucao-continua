@@ -6,7 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
-import { Search, Dumbbell, Save } from 'lucide-react';
+import { Search, Dumbbell, Save, Sparkles } from 'lucide-react';
+import { TrainerAICopilotModal } from '../../components/trainer/TrainerAICopilotModal';
 import toast from 'react-hot-toast';
 import type { UserData, Exercise, ExerciseDetails, WorkoutPlan, WorkoutDay } from '../../types';
 
@@ -25,6 +26,7 @@ export const WorkoutBuilder: React.FC = () => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [isAICopilotOpen, setIsAICopilotOpen] = useState(false);
   
   // Plan State
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
@@ -227,12 +229,23 @@ export const WorkoutBuilder: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#F0EDE6]">Montagem de Treinos</h1>
-          <p className="text-[#8A8A7A]">Crie e atribua treinos personalizados</p>
+          <p className="text-[#8A8A7A]">Crie, prescreva ou gere treinos com o Copiloto IA Científico</p>
         </div>
-        <Button onClick={handleSavePlan}><Save className="mr-2" size={18} /> Salvar Plano</Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            type="button" 
+            variant="secondary" 
+            onClick={() => setIsAICopilotOpen(true)}
+            className="border border-[#D4A947] text-[#D4A947] hover:bg-[#D4A947]/10"
+          >
+            <Sparkles className="mr-2 text-[#D4A947]" size={18} />
+            Copiloto IA
+          </Button>
+          <Button onClick={handleSavePlan}><Save className="mr-2" size={18} /> Salvar Plano</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -402,6 +415,19 @@ export const WorkoutBuilder: React.FC = () => {
           )}
         </div>
       </div>
+
+      <TrainerAICopilotModal
+        isOpen={isAICopilotOpen}
+        onClose={() => setIsAICopilotOpen(false)}
+        clients={clients}
+        selectedClientId={selectedClient}
+        onApplyWorkout={({ planName, planDesc, activeDays, workoutDays }) => {
+          setPlanName(planName);
+          setPlanDesc(planDesc);
+          setActiveDays(activeDays);
+          setWorkoutDays(workoutDays);
+        }}
+      />
     </div>
   );
 };

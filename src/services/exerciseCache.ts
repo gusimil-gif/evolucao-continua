@@ -1,28 +1,32 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { exercisesData } from '../utils/exercisesData';
+import { firestoreExercises } from '../utils/firestoreExercises';
 import { getExerciseVideoUrl } from '../utils/videoHelper';
 import type { Exercise } from '../types';
 
-const CACHE_KEY = 'ec_exercises_cache_v1';
+const CACHE_KEY = 'ec_exercises_cache_v2';
 let memoryCache: Exercise[] | null = null;
 let isFetchingRemote = false;
 
-// Converte os dados estáticos para o formato Exercise padrão com links de vídeo garantidos
-const defaultExercises: Exercise[] = exercisesData.map((ex, index) => {
-  const id = `ex_seed_${index}_${ex.nome.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+type CacheListener = (exercises: Exercise[]) => void;
+const listeners = new Set<CacheListener>();
+
+export function subscribeExerciseCache(listener: CacheListener): () => void {
+  listeners.add(listener);
+  if (memoryCache && memoryCache.length > 0) {
+    listener(memoryCache);
+  }
+  return () => listeners.delete(listener);
+}
+
+// Converte os dados verificados do Firestore para o formato Exercise padrão com links de vídeo garantidos
+const defaultExercises: Exercise[] = firestoreExercises.map(ex => {
   const resolvedVideo = getExerciseVideoUrl(ex.nome, ex.videoUrl);
   return {
-    exerciseId: id,
-    nome: ex.nome,
-    grupoMuscular: ex.grupoMuscular,
-    equipamento: ex.equipamento,
-    dificuldade: ex.dificuldade,
-    descricao: '',
+    ...ex,
     videoUrl: resolvedVideo,
-    videoUrlPadrao: resolvedVideo,
-    criadoPor: 'system',
-    ativo: true
+    videoUrlPadrao: ex.videoUrlPadrao || resolvedVideo,
+    ativo: ex.ativo !== false
   };
 });
 
@@ -30,7 +34,7 @@ const defaultExercises: Exercise[] = exercisesData.map((ex, index) => {
  * Retorna lista de exercícios instantaneamente (<1ms) a partir de:
  * 1. Memória RAM (se já carregado)
  * 2. LocalStorage (se persistido no navegador)
- * 3. Catálogo estático embutido (157 exercícios padrão)
+ * 3. Catálogo oficial sincronizado com os 127 IDs do Firestore
  *
  * Dispara atualização em background no Firestore para sincronizar novos exercícios cadastrados.
  */
@@ -56,7 +60,7 @@ export async function getExercisesCached(): Promise<Exercise[]> {
     } catch (_) {}
   }
 
-  // 3. Fallback imediato com os 157 exercícios estáticos
+  // 3. Fallback imediato com os 127 exercícios oficiais com IDs reais
   memoryCache = defaultExercises;
   revalidateRemote();
   return memoryCache;
@@ -95,6 +99,13 @@ async function revalidateRemote() {
           localStorage.setItem(CACHE_KEY, JSON.stringify(remoteDocs));
         } catch (_) {}
       }
+
+      // Notificar componentes inscritos
+      listeners.forEach(cb => {
+        try {
+          cb(remoteDocs);
+        } catch (_) {}
+      });
     }
   } catch (err) {
     console.warn('Revalidação em segundo plano de exercícios falhou (usando cache local):', err);

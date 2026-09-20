@@ -157,6 +157,7 @@ export const TrainerAICopilotModal: React.FC<TrainerAICopilotModalProps> = ({
 
         return {
           exerciseId: chosenExerciseId,
+          nome: matched?.nome || ex.nomeExercicio,
           ordem: idx + 1,
           series: Number(ex.series) || 3,
           repeticoes: String(ex.repeticoes || '10-12'),

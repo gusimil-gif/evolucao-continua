@@ -54,6 +54,7 @@ export interface WorkoutDay {
 
 export interface ExerciseDetails {
   exerciseId: string;
+  nome?: string;
   ordem: number;
   series: number;
   repeticoes: string;

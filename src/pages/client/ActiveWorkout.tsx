@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, collection, query, where, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
-import { getExercisesCached } from '../../services/exerciseCache';
+import { getExercisesCached, subscribeExerciseCache } from '../../services/exerciseCache';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -41,6 +41,18 @@ export const ActiveWorkout: React.FC = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [currentSets, setCurrentSets] = useState<ExecutedSet[]>([]);
 
+  // Sincronizar catálogo instantâneo e atualizações em tempo real
+  useEffect(() => {
+    const unsubscribe = subscribeExerciseCache(list => {
+      const metaMap: Record<string, Exercise> = {};
+      list.forEach(ex => {
+        metaMap[ex.exerciseId] = ex;
+      });
+      setExercisesMeta(prev => ({ ...metaMap, ...prev }));
+    });
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     const fetchWorkout = async () => {
       if (!planId || !dayId || dayId === 'undefined' || planId === 'undefined') {
@@ -68,7 +80,30 @@ export const ActiveWorkout: React.FC = () => {
           cachedExercisesList.forEach(ex => {
             meta[ex.exerciseId] = ex;
           });
-          setExercisesMeta(meta);
+          setExercisesMeta(prev => ({ ...meta, ...prev }));
+
+          // Buscar sob demanda qualquer ID customizado não presente no catálogo oficial
+          const missingIds = (d.exercicios || [])
+            .map(e => e.exerciseId)
+            .filter(id => id && !meta[id]);
+
+          if (missingIds.length > 0) {
+            Promise.all(missingIds.map(id => getDoc(doc(db, 'exercises', id)).catch(() => null))).then(snaps => {
+              let hasNew = false;
+              snaps.forEach(s => {
+                if (s && s.exists()) {
+                  meta[s.id] = {
+                    exerciseId: s.id,
+                    ...s.data()
+                  } as Exercise;
+                  hasNew = true;
+                }
+              });
+              if (hasNew) {
+                setExercisesMeta(prev => ({ ...prev, ...meta }));
+              }
+            });
+          }
 
           // Buscar Cargas Anteriores (Progressive Overload)
           if (prevSnap) {
@@ -353,10 +388,12 @@ export const ActiveWorkout: React.FC = () => {
                        }`}>
                           {isFinished ? <CheckCircle2 size={24} /> : (idx + 1)}
                        </div>
-                       <div>
-                          <h3 className={`font-bold text-lg ${isFinished ? 'text-[#D4A947]' : 'text-[#F0EDE6]'}`}>{meta?.nome || 'Carregando...'}</h3>
-                          <p className="text-xs text-[#8A8A7A]">{exDetail.series} Séries • {exDetail.repeticoes} Reps</p>
-                       </div>
+                        <div>
+                           <h3 className={`font-bold text-lg ${isFinished ? 'text-[#D4A947]' : 'text-[#F0EDE6]'}`}>
+                             {meta?.nome || (exDetail as any)?.nome || (exDetail as any)?.nomeExercicio || `Exercício ${idx + 1}`}
+                           </h3>
+                           <p className="text-xs text-[#8A8A7A]">{exDetail.series} Séries • {exDetail.repeticoes} Reps</p>
+                        </div>
                     </div>
                     <ChevronRight className="text-[#8A8A7A] group-hover:text-[#D4A947]" />
                  </div>
@@ -427,8 +464,12 @@ export const ActiveWorkout: React.FC = () => {
       {/* Conteúdo Dinâmico (Exercício Selecionado) */}
       <div className="p-4 space-y-6 flex-1">
         <div className="space-y-1">
-           <h2 className="text-3xl font-black text-[#F0EDE6]">{currentMeta?.nome}</h2>
-           <p className="text-[#D4A947] font-bold text-sm uppercase tracking-wider">{currentMeta?.grupoMuscular}</p>
+           <h2 className="text-3xl font-black text-[#F0EDE6]">
+             {currentMeta?.nome || (currentExDetail as any)?.nome || (currentExDetail as any)?.nomeExercicio || 'Exercício'}
+           </h2>
+           <p className="text-[#D4A947] font-bold text-sm uppercase tracking-wider">
+             {currentMeta?.grupoMuscular || 'Hipertrofia'}
+           </p>
         </div>
 
         {/* PROGRESSIVE OVERLOAD / HISTÓRICO */}

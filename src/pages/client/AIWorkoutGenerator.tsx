@@ -152,6 +152,7 @@ export const AIWorkoutGenerator: React.FC = () => {
 
           return {
             exerciseId: matchedEx ? matchedEx.exerciseId : (exercisesList[idx % exercisesList.length]?.exerciseId || 'ex-default'),
+            nome: matchedEx?.nome || ex.nomeExercicio,
             ordem: idx + 1,
             series: Number(ex.series) || 3,
             repeticoes: String(ex.repeticoes || '10-12'),

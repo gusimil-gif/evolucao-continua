@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper: Verifica se o usuario esta autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Validacao de imagem valida (JPEG, PNG, WebP) e tamanho maximo de 5MB
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
+    }
+
+    // Fotos de Evolucao Pessoal
+    match /progress_photos/{userId}/{allPaths=**} {
+      // Leitura permitida para o proprio dono ou treinador autenticado
+      allow read: if isAuthenticated() && (request.auth.uid == userId || 
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == 'trainer');
+      
+      // Upload apenas pelo proprio dono, com tipo MIME de imagem real e tamanho < 5MB
+      allow write: if isAuthenticated() && request.auth.uid == userId && isValidImage();
+    }
+
+    // Fotos de Posts da Comunidade
+    match /community/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId && isValidImage();
+    }
+  }
+}

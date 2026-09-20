@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: O usuario precisa estar autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Verifica se o documento pertence ao usuario logado
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper: Verifica se o usuario possui a role de treinador no Firestore
+    function isTrainer() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'trainer';
+    }
+
+    // Colecao: users
+    match /users/{userId} {
+      // Leitura: O proprio usuario pode ler seu perfil ou o Treinador pode ver seus alunos
+      allow read: if isOwner(userId) || isTrainer();
+      
+      // Criacao: Qualquer novo usuario autenticado pode criar seu proprio documento inicial, ou treinador pode criar
+      allow create: if isAuthenticated() && (
+        isOwner(userId) || isTrainer()
+      );
+      
+      // Atualizacao: O dono pode atualizar dados basicos mas NUNCA pode alterar o userType para 'trainer' (previne Privilege Escalation)
+      allow update: if isTrainer() || (
+        isOwner(userId) && 
+        request.resource.data.userType == resource.data.userType &&
+        request.resource.data.trainerId == resource.data.trainerId
+      );
+      
+      // Exclusao: Apenas o treinador tem permissao administrativa para deletar usuarios
+      allow delete: if isTrainer();
+    }
+
+    // Colecao: workoutPlans (Planos de Treino)
+    match /workoutPlans/{planId} {
+      // Aluno so pode ler o plano se pertencer a ele (clientId == auth.uid)
+      allow read: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+      allow write: if isTrainer();
+    }
+
+    // Colecao: workoutDays (Dias e Exercicios)
+    match /workoutDays/{dayId} {
+      allow read: if isAuthenticated();
+      allow write: if isTrainer();
+    }
+
+    // Colecao: workoutLogs (Historico de Treinos do Aluno)
+    match /workoutLogs/{logId} {
+      // Aluno so pode ler ou registrar logs para o proprio ID (prevencao de IDOR)
+      allow read: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.clientId == request.auth.uid;
+      allow update, delete: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+    }
+
+    // Colecao: exercises (Biblioteca de Exercicios)
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      allow write: if isTrainer();
+    }
+
+    // Colecao: motivationalQuotes (Frases do Dia)
+    match /motivationalQuotes/{quoteId} {
+      allow read: if isAuthenticated();
+      allow write: if isTrainer();
+    }
+
+    // Colecao: progressPhotos (Cofre de Fotos de Evolucao)
+    match /progressPhotos/{photoId} {
+      allow read: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.clientId == request.auth.uid;
+      allow delete: if isTrainer() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+    }
+
+    // Colecao: communityPosts (Feed da Comunidade)
+    match /communityPosts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuthenticated(); // likes e comentarios
+      allow delete: if isTrainer() || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+    }
+
+    // Colecao: dailyHabits (Checklist diario de agua, dieta, sono)
+    match /dailyHabits/{habitId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

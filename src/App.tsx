@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
@@ -16,7 +15,6 @@ import CommunityFeed from './pages/client/CommunityFeed';
 import ClientManagement from './pages/trainer/ClientManagement';
 import ExerciseLibrary from './pages/trainer/ExerciseLibrary';
 import WorkoutBuilder from './pages/trainer/WorkoutBuilder';
-import { runSeed } from './utils/seed';
 
 const RootRedirect = () => {
   const { currentUser, userData, loading } = useAuth();
@@ -26,10 +24,6 @@ const RootRedirect = () => {
 };
 
 function App() {
-  // Opcional: Rodar o seed (Apenas 1 vez, pode comentar depois)
-  useEffect(() => {
-    runSeed().catch(console.error);
-  }, []);
 
   return (
     <AuthProvider>

@@ -9,7 +9,7 @@ import { Heart, MessageCircle, Send, Image as ImageIcon, X, Loader2, Users } fro
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import type { CommunityPost, PostComment, UserData } from '../../types';
+import type { CommunityPost, PostComment } from '../../types';
 
 export const CommunityFeed: React.FC = () => {
   const { userData } = useAuth();
@@ -23,18 +23,11 @@ export const CommunityFeed: React.FC = () => {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [commentsData, setCommentsData] = useState<Record<string, PostComment[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
-  const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPosts();
-    fetchUsers();
   }, [userData]);
-
-  const fetchUsers = async () => {
-    const snap = await getDocs(collection(db, 'users'));
-    setAllUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserData)));
-  };
 
   const fetchPosts = async () => {
     try {
@@ -75,23 +68,17 @@ export const CommunityFeed: React.FC = () => {
         imageUrl = await getDownloadURL(upload.ref);
       }
 
-      // Parse @mentions
+      // Parse @mentions tags directly from content
       const mentionRegex = /@(\w+)/g;
       const mentionMatches = newContent.match(mentionRegex) || [];
-      const mentionIds = mentionMatches
-        .map(m => {
-          const name = m.replace('@', '');
-          const user = allUsers.find(u => u.nome.toLowerCase().includes(name.toLowerCase()));
-          return user?.uid;
-        })
-        .filter(Boolean) as string[];
+      const mentionTags = mentionMatches.map(m => m.replace('@', ''));
 
       const postData = {
         authorId: userData.uid,
         authorName: userData.nome,
         content: newContent,
         imageUrl: imageUrl || undefined,
-        mentions: mentionIds,
+        mentions: mentionTags,
         likes: [],
         likeCount: 0,
         createdAt: serverTimestamp(),

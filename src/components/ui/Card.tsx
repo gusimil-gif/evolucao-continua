@@ -11,7 +11,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl bg-[#1A1A1A] p-6 border border-[#333333]',
+          'rounded-xl bg-[#1A1A1A] p-6 border border-[#333333] relative max-w-full overflow-hidden',
           elevated && 'shadow-[0_4px_24px_rgba(0,0,0,0.4)]',
           className
         )}

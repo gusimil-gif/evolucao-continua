@@ -39,13 +39,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const links = isTrainer ? trainerLinks : clientLinks;
 
   return (
-    <div className="flex h-screen bg-[#0D0D0D] overflow-hidden flex-col md:flex-row">
+    <div className="flex h-screen bg-[#0D0D0D] overflow-hidden flex-col md:flex-row w-full max-w-full overflow-x-hidden">
       
       {/* ============================================================ */}
       {/* 1. Header Mobile (Visível apenas em Celulares no Topo)       */}
       {/* ============================================================ */}
       <header 
-        className="md:hidden flex items-end justify-between px-4 pb-3 bg-[#1A1A1A] border-b border-[#333333] z-40 shadow-sm"
+        className="md:hidden flex items-end justify-between px-4 pb-3 bg-[#1A1A1A] border-b border-[#333333] z-40 shadow-sm w-full max-w-full overflow-x-hidden"
         style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', minHeight: '80px' }}
       >
         <div className="flex items-center gap-3">
@@ -119,8 +119,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* 3. Área Principal do Conteúdo                                  */}
       {/* ============================================================ */}
       {/* No mobile, usamos pb-36 para que o conteúdo final fique 100% visível acima da Bottom Nav */}
-      <main className="flex-1 overflow-y-auto bg-[#0D0D0D] animate-in fade-in zoom-in-95 duration-300 relative z-10 w-full overscroll-y-contain">
-        <div className="min-h-full w-full pb-36 md:pb-8">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0D0D0D] animate-in fade-in zoom-in-95 duration-300 relative z-10 w-full max-w-full overscroll-y-contain">
+        <div className="min-h-full w-full max-w-full overflow-x-hidden pb-36 md:pb-8">
           {children}
         </div>
       </main>
@@ -129,7 +129,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* 4. Bottom Tab Bar (Visível apenas no Mobile)                   */}
       {/* ============================================================ */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 w-full bg-[#1A1A1A]/95 backdrop-blur-md border-t border-[#333333] z-50 px-2 pt-2 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"
+        className="md:hidden fixed bottom-0 left-0 w-full max-w-full overflow-x-hidden bg-[#1A1A1A]/95 backdrop-blur-md border-t border-[#333333] z-50 px-2 pt-2 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
          <div className="flex justify-around items-center h-14">

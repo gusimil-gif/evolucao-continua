@@ -153,7 +153,7 @@ export const TrainerDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 w-full max-w-full overflow-x-hidden">
       
       {/* Header */}
       <div>

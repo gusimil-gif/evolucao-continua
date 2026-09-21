@@ -171,7 +171,7 @@ export const ClientDashboard: React.FC = () => {
   const currentWeek = Math.min(12, Math.floor(daysActive / 7) + 1);
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-16">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-16 w-full max-w-full overflow-x-hidden">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-16 h-16 rounded-full bg-[#D4A947]/20 flex items-center justify-center text-2xl font-black text-[#D4A947]">
           {userData?.nome.charAt(0).toUpperCase()}
@@ -274,8 +274,8 @@ export const ClientDashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card Principal: Treino do Dia e Outros Dias */}
         <div className="md:col-span-2 space-y-6">
-           <Card className="border-[#D4A947]/30 bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] overflow-hidden group">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4A947]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+           <Card className="border-[#D4A947]/30 bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] overflow-hidden group relative">
+             <div className="absolute top-0 right-0 w-48 h-48 bg-[#D4A947]/5 rounded-full blur-2xl pointer-events-none"></div>
              <div className="relative z-10 flex justify-between items-start mb-6">
                <div>
                  <h2 className="text-xl font-bold text-[#F0EDE6] flex items-center gap-2">

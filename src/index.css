@@ -19,12 +19,32 @@
     color-scheme: dark;
   }
 
+  html {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+  }
+
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    min-height: 100vh;
   }
 }
 

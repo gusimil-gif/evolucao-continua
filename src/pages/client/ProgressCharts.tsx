@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, limit } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { useNavigate } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -17,7 +18,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import { TrendingUp, Activity, Image as ImageIcon, Camera, Loader2, Calendar } from 'lucide-react';
+import { TrendingUp, Activity, Image as ImageIcon, Camera, Loader2, Calendar, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -26,6 +27,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 export const ProgressCharts: React.FC = () => {
   const { userData } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'charts' | 'photos'>('charts');
   
   // Charts States
@@ -42,41 +44,79 @@ export const ProgressCharts: React.FC = () => {
     const fetchProgress = async () => {
       if (!userData?.uid) return;
       
-      // Fetch Logs
-      const q = query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid), orderBy('dataExecucao', 'asc'));
-      const qSnap = await getDocs(q);
-      const fetchedLogs = qSnap.docs.map(d => {
-         const data = d.data();
-         return { ...data, id: d.id, date: data.dataExecucao?.toDate() || new Date() };
-      });
-      setLogs(fetchedLogs);
+      try {
+        // 1. Fetch Logs
+        const q = query(collection(db, 'workoutLogs'), where('clientId', '==', userData.uid), orderBy('dataExecucao', 'asc'));
+        const qSnap = await getDocs(q);
+        const fetchedLogs = qSnap.docs.map(d => {
+           const data = d.data();
+           return { ...data, id: d.id, date: data.dataExecucao?.toDate() || new Date() };
+        });
+        setLogs(fetchedLogs);
 
-      // Extract unique exercises done
-      const exIds = new Set<string>();
-      fetchedLogs.forEach((log: any) => {
-        log.exerciciosExecutados?.forEach((e: any) => exIds.add(e.exerciseId));
-      });
+        const exIds = new Set<string>();
+        const meta: Record<string, string> = {};
 
-      // Fetch Names for those
-      const meta: Record<string, string> = {};
-      for (const id of Array.from(exIds)) {
-        const eq = query(collection(db, 'exercises'), where('exerciseId', '==', id));
-        const eSnap = await getDocs(eq);
-        if(!eSnap.empty) {
-          meta[id] = eSnap.docs[0].data().nome;
+        // 2. Extrair exercícios do plano ativo para nunca deixar o dropdown vazio
+        const qPlan = query(collection(db, 'workoutPlans'), where('clientId', '==', userData.uid), where('ativo', '==', true), limit(1));
+        const planSnap = await getDocs(qPlan);
+        let activePlanDoc = !planSnap.empty ? planSnap.docs[0] : null;
+        if (!activePlanDoc) {
+          const qFb = query(collection(db, 'workoutPlans'), where('clientId', '==', userData.uid), limit(1));
+          const fbSnap = await getDocs(qFb);
+          if (!fbSnap.empty) activePlanDoc = fbSnap.docs[0];
         }
-      }
-      setExercisesMeta(meta);
 
-      if (exIds.size > 0 && !selectedEx) {
-         setSelectedEx(Array.from(exIds)[0]);
-      }
+        if (activePlanDoc) {
+          const qDays = query(collection(db, 'workoutDays'), where('planId', '==', activePlanDoc.id));
+          const dSnap = await getDocs(qDays);
+          dSnap.docs.forEach(d => {
+            const dData = d.data();
+            if (Array.isArray(dData.exercicios)) {
+              dData.exercicios.forEach((ex: any) => {
+                if (ex.exerciseId) {
+                  exIds.add(ex.exerciseId);
+                  if (ex.nome) meta[ex.exerciseId] = ex.nome;
+                }
+              });
+            }
+          });
+        }
 
-      // Fetch Photos
-      const qPhotos = query(collection(db, 'progressPhotos'), where('clientId', '==', userData.uid), orderBy('data', 'asc'));
-      const pSnap = await getDocs(qPhotos);
-      const fetchedPhotos = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setPhotos(fetchedPhotos);
+        // 3. Extrair exercícios dos logs executados
+        fetchedLogs.forEach((log: any) => {
+          log.exerciciosExecutados?.forEach((e: any) => {
+            if (e.exerciseId) exIds.add(e.exerciseId);
+          });
+        });
+
+        // 4. Buscar nomes faltantes no acervo global
+        for (const id of Array.from(exIds)) {
+          if (!meta[id]) {
+            const eq = query(collection(db, 'exercises'), where('exerciseId', '==', id));
+            const eSnap = await getDocs(eq);
+            if (!eSnap.empty) {
+              meta[id] = eSnap.docs[0].data().nome;
+            } else {
+              meta[id] = id;
+            }
+          }
+        }
+        setExercisesMeta(meta);
+
+        const keys = Object.keys(meta);
+        if (keys.length > 0 && !selectedEx) {
+           setSelectedEx(keys[0]);
+        }
+
+        // 5. Fetch Photos
+        const qPhotos = query(collection(db, 'progressPhotos'), where('clientId', '==', userData.uid), orderBy('data', 'asc'));
+        const pSnap = await getDocs(qPhotos);
+        const fetchedPhotos = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPhotos(fetchedPhotos);
+      } catch (err) {
+        console.error("Erro ao carregar dados de evolução:", err);
+      }
     };
     fetchProgress();
   }, [userData]);
@@ -221,7 +261,7 @@ export const ProgressCharts: React.FC = () => {
               value={selectedEx}
               onChange={(e) => setSelectedEx(e.target.value)}
             >
-              {exListKeys.length === 0 && <option value="">Nenhum dado regitrado ainda</option>}
+              {exListKeys.length === 0 && <option value="">Nenhum exercício encontrado</option>}
               {exListKeys.map(k => (
                 <option key={k} value={k}>{exercisesMeta[k]}</option>
               ))}
@@ -229,16 +269,41 @@ export const ProgressCharts: React.FC = () => {
           </div>
         </div>
 
-        <div className="h-80 w-full mt-4 bg-[#0D0D0D] border border-[#333333] rounded-xl p-4">
-          {exListKeys.length > 0 ? (
-            <Line data={generateChartData()} options={chartOptions} />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-[#8A8A7A]">
-              <Activity size={40} className="mb-2 opacity-20" />
-              <p>Execute treinos para ver seus gráficos de evolução aqui.</p>
+        {(() => {
+          const chartData = generateChartData();
+          const hasData = chartData.datasets[0]?.data && chartData.datasets[0].data.length > 0;
+
+          return (
+            <div className="h-80 w-full mt-4 bg-[#0D0D0D] border border-[#333333] rounded-xl p-4 flex flex-col justify-center">
+              {hasData ? (
+                <Line data={chartData} options={chartOptions} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-[#D4A947]/10 border border-[#D4A947]/30 flex items-center justify-center text-[#D4A947]">
+                    <Activity size={24} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#F0EDE6] text-base">
+                      {selectedEx && exercisesMeta[selectedEx]
+                        ? `Sem cargas registradas ainda para ${exercisesMeta[selectedEx]}`
+                        : 'Nenhum histórico registrado'}
+                    </p>
+                    <p className="text-xs text-[#8A8A7A] max-w-md mt-1 mx-auto">
+                      Conte ao Coach IA como foi seu treino ou finalize sua série para alimentar o gráfico de sobrecarga progressiva!
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate('/client/coach')}
+                    className="bg-[#D4A947] hover:bg-[#C9A03C] text-[#0D0D0D] font-bold text-xs shadow-md"
+                  >
+                    <Sparkles size={14} className="mr-1.5" /> Falar com Coach IA
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
       </Card>
       ) : (
       <div className="animate-in fade-in slide-in-from-right-8 duration-300">

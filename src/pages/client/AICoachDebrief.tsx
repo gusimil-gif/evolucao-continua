@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { triggerHaptic } from '../../utils/haptics';
 import { 
   parseDebriefWithAI, 
   saveDebriefAndSyncLoads, 
@@ -159,11 +160,13 @@ export const AICoachDebrief: React.FC = () => {
     }
 
     if (isListening) {
+      triggerHaptic('light');
       recognitionRef.current.stop();
       setIsListening(false);
       toast.success("Áudio pausado!");
     } else {
       try {
+        triggerHaptic('medium');
         recognitionRef.current.start();
         setIsListening(true);
         toast.success("Gravando... Fale livremente sobre seu treino!");
@@ -175,6 +178,7 @@ export const AICoachDebrief: React.FC = () => {
 
   // 3. Atalhos rápidos de relato
   const handleAddPrompt = (promptText: string) => {
+    triggerHaptic('light');
     setTranscription(prev => {
       const trimmed = prev.trim();
       return trimmed ? `${trimmed}. ${promptText}` : promptText;
@@ -193,6 +197,7 @@ export const AICoachDebrief: React.FC = () => {
       setIsListening(false);
     }
 
+    triggerHaptic('medium');
     setIsAnalyzing(true);
     try {
       // Executa análise inteligente
@@ -222,6 +227,7 @@ export const AICoachDebrief: React.FC = () => {
           analysis: result
         });
         setSavedDebriefId(debriefId);
+        triggerHaptic('success');
         toast.success("✅ Relato analisado e cargas sincronizadas com sucesso!", { duration: 4000 });
       }
 
@@ -293,40 +299,55 @@ export const AICoachDebrief: React.FC = () => {
               <span className="text-[11px] text-[#8A8A7A]">Toque para adicionar ao relato</span>
             </div>
             <div className="flex flex-wrap gap-2">
+              {scheduledExercises.length > 0 ? (
+                scheduledExercises.slice(0, 3).map((ex, idx) => (
+                  <button
+                    key={ex.exerciseId || idx}
+                    type="button"
+                    onClick={() => handleAddPrompt(`Subi carga no ${ex.nome} e fiz com boa técnica`)}
+                    className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span>🔥</span> Subi carga no {ex.nome}
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPrompt('Subi carga no Supino Reto para 40kg cada lado e fiz 8 repetições')}
+                    className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span>🔥</span> Subi carga no Supino
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPrompt('Subi carga no Leg Press para 240kg e fiz 10 reps com boa amplitude')}
+                    className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span>🦵</span> Subi carga no Leg Press
+                  </button>
+                </>
+              )}
               <button
                 type="button"
-                onClick={() => handleAddPrompt('Subi carga no Supino Reto para 40kg cada lado e fiz 8 repetições')}
-                className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
-              >
-                <span>🔥</span> Subi carga no Supino (40kg cada lado)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddPrompt('Senti uma pontada no ombro direito na descida do supino inclinado')}
-                className="text-xs bg-[#252525] hover:bg-amber-500/20 text-[#F0EDE6] hover:text-amber-400 border border-[#333333] hover:border-amber-500/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
-              >
-                <span>⚠️</span> Pontada no Ombro no Inclinado
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddPrompt('Treino foi muito pesado, RPE 9.0 com falha concêntrica na última série')}
+                onClick={() => handleAddPrompt('Treino foi muito intenso, RPE 9.0 com falha concêntrica na última série')}
                 className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
               >
                 <span>⚡</span> RPE 9.0 (Muito Intenso)
               </button>
               <button
                 type="button"
-                onClick={() => handleAddPrompt('Subi no Leg Press para 240kg e fiz 10 reps limpas sem dor no joelho')}
-                className="text-xs bg-[#252525] hover:bg-[#D4A947]/20 text-[#F0EDE6] hover:text-[#D4A947] border border-[#333333] hover:border-[#D4A947]/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
+                onClick={() => handleAddPrompt('Senti um leve incômodo articular na fase excêntrica do movimento')}
+                className="text-xs bg-[#252525] hover:bg-amber-500/20 text-[#F0EDE6] hover:text-amber-400 border border-[#333333] hover:border-amber-500/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
               >
-                <span>🦵</span> Subi Leg Press (240kg)
+                <span>⚠️</span> Incômodo / Pontada Articular
               </button>
               <button
                 type="button"
-                onClick={() => handleAddPrompt('Senti um estalo no joelho esquerdo ao descer no agachamento')}
-                className="text-xs bg-[#252525] hover:bg-red-500/20 text-[#F0EDE6] hover:text-red-400 border border-[#333333] hover:border-red-500/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
+                onClick={() => handleAddPrompt('Treino perfeito sem nenhuma dor articular')}
+                className="text-xs bg-[#252525] hover:bg-emerald-500/20 text-[#F0EDE6] hover:text-emerald-400 border border-[#333333] hover:border-emerald-500/50 px-3 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 active:scale-95"
               >
-                <span>🚨</span> Estalo no Joelho no Agachamento
+                <span>✅</span> 100% Sem Dores
               </button>
             </div>
           </div>
@@ -336,15 +357,21 @@ export const AICoachDebrief: React.FC = () => {
             <textarea
               value={transcription}
               onChange={(e) => setTranscription(e.target.value)}
-              placeholder="Fale ou digite livremente: 'Treino de pernas foi excelente! Subi no agachamento pra 90kg total e fiz 8 reps. No leg press fiz com 200kg. Senti um leve incômodo na lombar na última série da remada curvada. RPE 8.5...'"
+              placeholder="Fale ou digite livremente: 'Treino de hoje foi top! Subi no agachamento pra 90kg total e fiz 8 reps. Senti uma leve pontada no ombro direito na descida do supino inclinado. RPE 8.5...'"
               rows={5}
               className="w-full bg-[#0D0D0D] border border-[#333333] rounded-xl p-4 text-[#F0EDE6] placeholder-[#8A8A7A] focus:outline-none focus:border-[#D4A947] focus:ring-1 focus:ring-[#D4A947] transition-all resize-none text-sm leading-relaxed"
             />
 
             {isListening && (
-              <div className="absolute top-3 right-3 flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500 text-red-400 text-xs font-semibold animate-pulse">
+              <div className="absolute top-3 right-3 flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/60 text-red-400 text-xs font-semibold shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                Ouvindo seu áudio...
+                <div className="flex items-center gap-1 h-3">
+                  <span className="w-1 bg-red-500 rounded-full h-full animate-wave-1" />
+                  <span className="w-1 bg-red-500 rounded-full h-full animate-wave-2" />
+                  <span className="w-1 bg-red-500 rounded-full h-full animate-wave-3" />
+                  <span className="w-1 bg-red-500 rounded-full h-full animate-wave-4" />
+                </div>
+                <span>Gravando voz...</span>
               </div>
             )}
           </div>

@@ -51,6 +51,41 @@
 /* Custom utility classes mimicking components if needed */
 @layer components {
   .glass-panel {
-    @apply bg-bg-secondary/80 backdrop-blur-md shadow-lg border border-border-custom rounded-xl;
+    @apply bg-[#1A1A1A]/80 backdrop-blur-xl shadow-lg border border-[#333333] rounded-xl;
   }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #FFF0D0 0%, #D4A947 50%, #A67C1E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .glass-gold-card {
+    background: linear-gradient(135deg, rgba(26, 26, 26, 0.95) 0%, rgba(18, 18, 18, 0.98) 100%);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(212, 169, 71, 0.18);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 20px -5px rgba(212, 169, 71, 0.4);
+  }
+}
+
+@keyframes wave-bar {
+  0%, 100% { height: 6px; }
+  50% { height: 24px; }
+}
+
+.animate-wave-1 {
+  animation: wave-bar 0.9s ease-in-out infinite;
+}
+.animate-wave-2 {
+  animation: wave-bar 0.9s ease-in-out infinite 0.2s;
+}
+.animate-wave-3 {
+  animation: wave-bar 0.9s ease-in-out infinite 0.4s;
+}
+.animate-wave-4 {
+  animation: wave-bar 0.9s ease-in-out infinite 0.6s;
 }

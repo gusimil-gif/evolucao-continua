@@ -1,25 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, limit } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { PlayCircle, Award, Calendar as CalendarIcon, Target, ChevronRight, Droplet, Utensils, Moon, Flame, Gem, Sparkles, ShieldCheck, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { getCachedDashboard, setCachedDashboard } from '../../services/dashboardCache';
+import { triggerHaptic } from '../../utils/haptics';
 import type { WorkoutPlan, WorkoutDay, WorkoutLog } from '../../types';
 
 export const ClientDashboard: React.FC = () => {
   const { userData } = useAuth();
   const navigate = useNavigate();
-  const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null);
-  const [todayWorkout, setTodayWorkout] = useState<WorkoutDay | null>(null);
-  const [allWorkouts, setAllWorkouts] = useState<WorkoutDay[]>([]);
-  const [streak, setStreak] = useState(0);
-  const [monthTotal, setMonthTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+
+  // 1. Inicialização instantânea em 0ms a partir do cache local SWR
+  const cached = userData?.uid ? getCachedDashboard(userData.uid) : null;
+
+  const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(() => cached?.activePlan || null);
+  const [todayWorkout, setTodayWorkout] = useState<WorkoutDay | null>(() => cached?.todayWorkout || null);
+  const [allWorkouts, setAllWorkouts] = useState<WorkoutDay[]>(() => cached?.allWorkouts || []);
+  const [streak, setStreak] = useState<number>(() => cached?.streak || 0);
+  const [monthTotal, setMonthTotal] = useState<number>(() => cached?.monthTotal || 0);
+  const [loading, setLoading] = useState<boolean>(() => !cached);
 
   // Hábitos
-  const [habits, setHabits] = useState({ water: false, diet: false, sleep: false });
+  const [habits, setHabits] = useState(() => cached?.habits || { water: false, diet: false, sleep: false });
   const todayISO = new Date().toISOString().split('T')[0];
 
   const DIAS_SEMANA = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Treino E', 'Treino F', 'Treino G'];
@@ -44,12 +51,22 @@ export const ClientDashboard: React.FC = () => {
           setHabits(habitSnap.data() as any);
         }
 
-        if (!pSnap.empty) {
-          const plan = pSnap.docs[0].data() as WorkoutPlan;
+        let activePlanDoc = !pSnap.empty ? pSnap.docs[0] : null;
+        if (!activePlanDoc) {
+          // Fallback para plano cadastrado mesmo sem flag ativo=true
+          const qAllPlans = query(collection(db, 'workoutPlans'), where('clientId', '==', userData.uid), limit(1));
+          const allPlansSnap = await getDocs(qAllPlans);
+          if (!allPlansSnap.empty) {
+            activePlanDoc = allPlansSnap.docs[0];
+          }
+        }
+
+        if (activePlanDoc) {
+          const plan = activePlanDoc.data() as WorkoutPlan;
           setActivePlan(plan);
 
           // Queries para Workout Days
-          const qDays = query(collection(db, 'workoutDays'), where('planId', '==', pSnap.docs[0].id));
+          const qDays = query(collection(db, 'workoutDays'), where('planId', '==', activePlanDoc.id));
           const dSnap = await getDocs(qDays);
           loadedDays = dSnap.docs.map(d => ({ ...d.data(), dayId: d.id } as WorkoutDay));
           
@@ -87,7 +104,6 @@ export const ClientDashboard: React.FC = () => {
         if (datesArray.length > 0) {
            let lastT = removeTime(datesArray[0]);
            
-           // Pode começar com hoje, ou ontem. Se o mais recente for mais antigo que ontem, streak = 0.
            if (lastT === todayT || lastT === todayT - 86400000) {
               currStreak = 1;
               for (let i = 1; i < datesArray.length; i++) {
@@ -97,7 +113,7 @@ export const ClientDashboard: React.FC = () => {
                     currStreak++;
                     lastT = t;
                  } else if (diffDays === 0) {
-                    // Mesma data de conclusão (fez 2 treinos num dia)
+                    // Mesma data
                  } else {
                     break;
                  }
@@ -106,12 +122,11 @@ export const ClientDashboard: React.FC = () => {
         }
         setStreak(currStreak);
         
-        // Calcular o próximo treino da sequência (auto-progressão)
+        // Calcular o próximo treino da sequência
         let nextWorkout: WorkoutDay | null = null;
         if (loadedDays.length > 0) {
-          nextWorkout = loadedDays[0]; // Padrão: primeiro treino (Treino A)
+          nextWorkout = loadedDays[0]; // Padrão
           if (logs.length > 0) {
-            // Ordenar logs por data de execução decrescente (mais recente primeiro)
             const sortedLogs = [...logs].sort((a, b) => b.dataExecucao.toMillis() - a.dataExecucao.toMillis());
             const lastLog = sortedLogs[0];
             
@@ -123,7 +138,16 @@ export const ClientDashboard: React.FC = () => {
           }
         }
         setTodayWorkout(nextWorkout);
-        
+
+        // Salvar no Cache Local SWR para carregamento em 0ms
+        setCachedDashboard(userData.uid, {
+          activePlan: activePlanDoc ? (activePlanDoc.data() as WorkoutPlan) : null,
+          allWorkouts: loadedDays,
+          todayWorkout: nextWorkout,
+          streak: currStreak,
+          monthTotal: monCount,
+          habits: habitSnap.exists() ? (habitSnap.data() as any) : habits
+        });
 
       } catch (error) {
         console.error("Erro ao carregar dashboard", error);
@@ -132,9 +156,8 @@ export const ClientDashboard: React.FC = () => {
       }
     };
 
-    // Forçar destravamento para evitar tela congelada por erro de rede do firebase
-    const timeout = setTimeout(() => setLoading(false), 5000);
-    fetchDashboard().finally(() => clearTimeout(timeout));
+    // Atualização em segundo plano sem congelamento
+    fetchDashboard();
   }, [userData]);
 
   if (loading) {
@@ -148,8 +171,34 @@ export const ClientDashboard: React.FC = () => {
 
   const toggleHabit = async (key: 'water' | 'diet' | 'sleep') => {
     if (!userData?.uid) return;
-    const newHabits = { ...habits, [key]: !habits[key] };
+    const nextVal = !habits[key];
+    const newHabits = { ...habits, [key]: nextVal };
     setHabits(newHabits);
+    
+    // Haptic feedback tátil
+    triggerHaptic(nextVal ? 'medium' : 'light');
+
+    // Celebração quando completa os 3 pilares biológicos diários
+    if (newHabits.water && newHabits.diet && newHabits.sleep) {
+      triggerHaptic('success');
+      toast.success('Parabéns! Tríade de hábitos 100% cumprida hoje! 🏆', {
+        icon: '🔥',
+        duration: 3500,
+      });
+    }
+
+    // Persistir imediatamente no cache SWR
+    if (userData.uid) {
+      setCachedDashboard(userData.uid, {
+        activePlan,
+        allWorkouts,
+        todayWorkout,
+        streak,
+        monthTotal,
+        habits: newHabits,
+      });
+    }
+
     try {
       await setDoc(doc(db, 'dailyHabits', `${userData.uid}_${todayISO}`), newHabits, { merge: true });
     } catch (e) {
@@ -170,15 +219,27 @@ export const ClientDashboard: React.FC = () => {
   const daysLeft = Math.max(0, 90 - daysActive);
   const currentWeek = Math.min(12, Math.floor(daysActive / 7) + 1);
 
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Bom dia' : currentHour < 18 ? 'Boa tarde' : 'Boa noite';
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-16 w-full max-w-full overflow-x-hidden">
+      {/* Header com Avatar de Alto Padrão e Saudação Dinâmica */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-full bg-[#D4A947]/20 flex items-center justify-center text-2xl font-black text-[#D4A947]">
-          {userData?.nome.charAt(0).toUpperCase()}
+        <div className="relative">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D4A947]/30 to-[#B8922E]/10 border-2 border-[#D4A947] flex items-center justify-center text-2xl font-black text-[#D4A947] shadow-[0_0_20px_rgba(212,169,71,0.25)]">
+            {userData?.nome?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#0D0D0D] rounded-full shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-[#F0EDE6]">Olá, {userData?.nome}!</h1>
-          <p className="text-[#8A8A7A]">Pronto para superar seus limites hoje?</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[#D4A947] uppercase tracking-wider">{greeting}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F0EDE6] tracking-tight">
+            Olá, <span className="text-gradient-gold">{userData?.nome?.split(' ')[0]}</span>!
+          </h1>
+          <p className="text-xs sm:text-sm text-[#8A8A7A]">Pronto para superar seus limites hoje?</p>
         </div>
       </div>
 
@@ -289,25 +350,50 @@ export const ClientDashboard: React.FC = () => {
                </div>
              </div>
 
-             {todayWorkout ? (
-               <div className="relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                 <div className="bg-[#0D0D0D]/50 border border-[#333333] p-5 rounded-xl shadow-inner">
-                   <h3 className="text-lg font-bold text-[#D4A947] mb-1">{todayWorkout.nomeTreino}</h3>
-                   <p className="text-sm text-[#8A8A7A]">{todayWorkout.exercicios.length} exercícios focados.</p>
-                 </div>
+              {(todayWorkout || allWorkouts.length > 0) ? (
+                (() => {
+                  const targetWorkout = todayWorkout || allWorkouts[0];
+                  return (
+                    <div className="relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="bg-[#0D0D0D]/60 border border-[#333333] p-5 rounded-xl shadow-inner flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[11px] font-extrabold text-[#D4A947] bg-[#D4A947]/10 px-2.5 py-0.5 rounded uppercase tracking-wider border border-[#D4A947]/20">
+                              {targetWorkout.diaSemana}
+                            </span>
+                            <span className="text-xs text-[#8A8A7A]">Sequência do Programa</span>
+                          </div>
+                          <h3 className="text-lg font-bold text-[#F0EDE6]">{targetWorkout.nomeTreino}</h3>
+                          <p className="text-sm text-[#8A8A7A] mt-0.5">{targetWorkout.exercicios?.length || 0} exercícios focados com execução guiada.</p>
+                        </div>
+                      </div>
 
-                 <Button 
-                   onClick={() => navigate(`/client/workout/${todayWorkout.planId}/${todayWorkout.dayId}`)} 
-                   className="w-full text-lg h-14 shadow-[0_0_15px_rgba(212,169,71,0.3)] hover:shadow-[0_0_25px_rgba(212,169,71,0.5)] transition-all hover:-translate-y-0.5"
-                 >
-                   <PlayCircle className="mr-2" size={24} /> Começar Agora
-                 </Button>
-               </div>
-             ) : (
-               <div className="py-10 text-center text-[#8A8A7A] relative z-10">
-                 Nenhum treino específico apontado para Hoje. Aproveite para descansar ou escolha outro treino abaixo!
-               </div>
-             )}
+                      <Button 
+                        onClick={() => {
+                          triggerHaptic('medium');
+                          navigate(`/client/workout/${targetWorkout.planId}/${targetWorkout.dayId}`);
+                        }} 
+                        className="w-full text-lg h-14 bg-gradient-to-r from-[#D4A947] to-[#B8922E] text-[#0D0D0D] font-extrabold shadow-[0_0_20px_rgba(212,169,71,0.35)] hover:shadow-[0_0_30px_rgba(212,169,71,0.6)] transition-all hover:-translate-y-0.5"
+                      >
+                        <PlayCircle className="mr-2" size={24} /> Começar Treino Agora
+                      </Button>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="py-10 text-center text-[#8A8A7A] relative z-10 space-y-3">
+                  <p>Nenhum treino disponível no seu plano atual.</p>
+                  <Button
+                    onClick={() => {
+                      triggerHaptic('light');
+                      navigate('/client/ai-workout');
+                    }}
+                    className="bg-[#D4A947]/20 text-[#D4A947] hover:bg-[#D4A947]/30 border border-[#D4A947]/40"
+                  >
+                    Montar Ficha com IA
+                  </Button>
+                </div>
+              )}
            </Card>
 
             {/* Banner / Atalho Coach IA Pós-Treino */}
